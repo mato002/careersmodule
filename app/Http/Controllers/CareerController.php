@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GeneralSetting;
 use App\Models\JobPost;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class CareerController extends Controller
 {
@@ -20,13 +21,16 @@ class CareerController extends Controller
         return view('careers.index', compact('jobs', 'generalSettings'));
     }
 
-    public function show(JobPost $jobPost)
+    public function show($slug)
     {
-        $job = $jobPost;
+        // Try to resolve the job post by slug - let Laravel show the actual error
+        $job = JobPost::where('slug', $slug)->firstOrFail();
         
         // Only hide inactive jobs, but allow viewing closed jobs (as evidence)
         if (!$job->is_active) {
-            abort(404, 'This job posting is not available.');
+            throw new \Illuminate\Http\Exceptions\HttpResponseException(
+                response()->view('errors.404', ['message' => 'This job posting is not available.'], 404)
+            );
         }
 
         $job->incrementViews();

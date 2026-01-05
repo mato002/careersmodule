@@ -70,21 +70,78 @@ class SelfInterviewSession extends Model
 
         $application = $this->application;
 
+        $previousStatus = $application->status;
+        
         $application->update([
             'self_interview_score' => $percentageScore,
             'self_interview_passed' => $this->is_passed,
             'self_interview_completed_at' => now(),
         ]);
 
-        // Record in status history for auditing (does not change status)
+        // Refresh application to get latest data
+        $application->refresh();
+
+        // Record in status history for auditing
         \App\Models\JobApplicationStatusHistory::create([
             'job_application_id' => $application->id,
-            'previous_status' => $application->status,
-            'new_status' => $application->status,
+            'previous_status' => $previousStatus,
+            'new_status' => $application->status, // Will be updated by checkStage2Completion
             'changed_by' => null,
             'source' => 'self_interview_completion',
             'notes' => "Self interview completed. Score: {$percentageScore}% ({$score}/{$totalPossible}). " . ($this->is_passed ? 'Passed' : 'Failed'),
         ]);
+
+        // Check if both Stage 2 requirements are met (aptitude + self-interview)
+        $this->checkStage2Completion();
+    }
+
+    /**
+     * Check if Stage 2 is complete (aptitude passed + self-interview passed)
+     */
+    private function checkStage2Completion(): void
+    {
+        $application = $this->application->fresh(); // Refresh to get latest data
+
+        // Check if aptitude passed
+        $aptitudePassed = $application->aptitude_test_passed === true;
+
+        // Check if self-interview passed
+        $selfInterviewPassed = $application->self_interview_passed === true;
+
+        $previousStatus = $application->status;
+        $newStatus = $previousStatus;
+
+        // Determine new status based on self-interview result
+        if ($aptitudePassed && $selfInterviewPassed) {
+            // If both aptitude and self-interview passed, move to Stage 2 Passed
+            $newStatus = 'stage_2_passed';
+        } elseif (!$selfInterviewPassed) {
+            // If self-interview failed, don't change status
+            return;
+        } elseif ($selfInterviewPassed && !$aptitudePassed) {
+            // If self-interview passed but aptitude not yet done, keep current status
+            return;
+        }
+
+        // Update status if it changed
+        if ($newStatus !== $previousStatus) {
+            $application->update(['status' => $newStatus]);
+            
+            // Record status change
+            $notes = '';
+            if ($aptitudePassed && $selfInterviewPassed) {
+                $notes = 'Stage 2 completed: Aptitude test passed and Self-interview passed';
+            }
+            
+            \App\Models\JobApplicationStatusHistory::create([
+                'job_application_id' => $application->id,
+                'previous_status' => $previousStatus,
+                'new_status' => $newStatus,
+                'changed_by' => null, // System change
+                'source' => 'self_interview_completion',
+                'notes' => $notes,
+            ]);
+        }
     }
 }
 

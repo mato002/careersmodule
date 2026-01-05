@@ -23,14 +23,16 @@
                        class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white text-teal-900 font-semibold text-sm sm:text-base shadow-md hover:bg-teal-50 transition-colors">
                         Home
                     </a>
-                    <a href="{{ route('loan.apply') }}"
-                       class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
-                        Apply for a Loan
-                    </a>
                     <a href="{{ route('careers.index') }}"
+                       class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
+                        View Careers
+                    </a>
+                    @if(Route::has('contact'))
+                    <a href="{{ route('contact') }}"
                        class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white/10 border border-white/20 text-white font-semibold text-sm sm:text-base hover:bg-white/15 transition-colors">
                         Contact Us
                     </a>
+                    @endif
                 </div>
 
                 <p class="text-[11px] sm:text-xs text-teal-100/80 mt-4">

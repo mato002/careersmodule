@@ -274,7 +274,39 @@
 
                     <!-- Additional Info Tab -->
                     <div id="content-additional" class="tab-content hidden">
-                        <!-- AI Analysis -->
+                        <!-- CV & AI Processing Actions -->
+                        @if($application->cv_path)
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
+                                <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">CV & AI Processing</h2>
+                                <div class="flex flex-wrap gap-3">
+                                    <form method="POST" action="{{ route('admin.job-applications.parse-cv', $application) }}" class="inline-block">
+                                        @csrf
+                                        <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+                                            Parse CV Only
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.job-applications.analyze-with-ai', $application) }}" class="inline-block">
+                                        @csrf
+                                        <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100">
+                                            Analyze with AI
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ route('admin.job-applications.process-cv-and-ai', $application) }}" class="inline-block">
+                                        @csrf
+                                        <button type="submit" class="px-4 py-2 text-sm rounded-xl border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100">
+                                            Parse CV & Analyze with AI
+                                        </button>
+                                    </form>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-3">
+                                    <strong>Parse CV Only:</strong> Extracts structured data from CV file<br>
+                                    <strong>Analyze with AI:</strong> Generates AI summary and analysis (requires parsed CV or application data)<br>
+                                    <strong>Parse CV & Analyze with AI:</strong> Full processing (parsing + AI analysis)
+                                </p>
+                            </div>
+                        @endif
+
+                        <!-- AI Analysis Results -->
                         @if($application->ai_summary || $application->ai_details)
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
                                 <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">AI Analysis</h2>
@@ -1171,7 +1203,7 @@
                         </span>
                     </div>
 
-                    <form method="POST" action="/admin/job-applications/{{ $applicationId }}/update-status" class="space-y-4">
+                    <form method="POST" action="{{ route('admin.job-applications.update-status', $application) }}" class="space-y-4">
                         @csrf
                         <div class="space-y-1">
                             <label for="status" class="text-xs font-medium text-slate-600">Update Status</label>
@@ -1348,7 +1380,7 @@
                 @if($application->status === 'pending')
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6">
                         <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Review Application</h2>
-                        <form method="POST" action="/admin/job-applications/{{ $applicationId }}/review" class="space-y-4">
+                        <form method="POST" action="{{ route('admin.job-applications.review', $application) }}" class="space-y-4">
                         @csrf
                         <div class="space-y-1">
                             <label for="decision" class="text-xs font-medium text-slate-600">Decision</label>
@@ -1390,7 +1422,7 @@
                 )
                     <div id="schedule-interview-card" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6">
                         <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Schedule Interview</h2>
-                        <form method="POST" action="/admin/job-applications/{{ $applicationId }}/schedule-interview" class="space-y-4">
+                        <form method="POST" action="{{ route('admin.job-applications.schedule-interview', $application) }}" class="space-y-4">
                         @csrf
                         <div class="space-y-1">
                             <label for="interview_type" class="text-xs font-medium text-slate-600">Interview Type</label>

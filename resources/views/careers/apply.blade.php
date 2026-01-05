@@ -1,8 +1,27 @@
-@extends('layouts.website')
+@php
+    $generalSettings = \App\Models\GeneralSetting::query()->latest()->first() ?? new \App\Models\GeneralSetting();
+@endphp
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <meta name="description" content="Apply for {{ $job->title }} - {{ $generalSettings->company_name ?? 'Company' }}">
+    <meta name="keywords" content="careers, jobs, application, {{ $job->title }}, {{ $generalSettings->company_name ?? 'Company' }}">
+    <title>Apply for {{ $job->title }} - {{ $generalSettings->company_name ?? 'Company' }}</title>
 
-@section('title', 'Apply for ' . $job->title . ' - Fortress Lenders Ltd')
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
 
-@section('content')
+    <!-- Styles -->
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased overflow-x-hidden">
+    @include('careers._navigation')
+
+    <!-- Main Content -->
+    <main class="pt-16 md:pt-20 overflow-x-hidden">
     <!-- Hero Section -->
     <section class="bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 text-white py-12 sm:py-16 md:py-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -46,7 +65,7 @@
                     </div>
                 </div>
 
-                @if ($errors->any())
+                @if(isset($errors) && $errors->any())
                     <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
                         <p class="font-semibold mb-1">Please review the highlighted fields and try again.</p>
                         <ul class="list-disc list-inside text-sm">
@@ -533,7 +552,10 @@
         </div>
     </section>
 
-    @push('scripts')
+    </main>
+
+    @include('careers._footer')
+
     <script>
         let currentPage = 1;
         let referrerCount = 1;
@@ -1052,6 +1074,6 @@
             updateProgressBars();
         }
     </script>
-    @endpush
-@endsection
+</body>
+</html>
 

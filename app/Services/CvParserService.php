@@ -97,10 +97,13 @@ class CvParserService
         }
 
         // Fallback: Use pdftotext command if available (requires poppler-utils)
-        if (shell_exec('which pdftotext')) {
-            $output = shell_exec("pdftotext -layout \"{$filePath}\" -");
-            if ($output) {
-                return $output;
+        if (function_exists('shell_exec')) {
+            $whichResult = @call_user_func('shell_exec', 'which pdftotext');
+            if ($whichResult) {
+                $output = @call_user_func('shell_exec', "pdftotext -layout \"{$filePath}\" -");
+                if ($output) {
+                    return $output;
+                }
             }
         }
 
@@ -133,10 +136,13 @@ class CvParserService
         }
 
         // Fallback: Try using antiword or catdoc if available
-        if (shell_exec('which antiword')) {
-            $output = shell_exec("antiword \"{$filePath}\"");
-            if ($output) {
-                return $output;
+        if (function_exists('shell_exec')) {
+            $whichResult = @call_user_func('shell_exec', 'which antiword');
+            if ($whichResult) {
+                $output = @call_user_func('shell_exec', "antiword \"{$filePath}\"");
+                if ($output) {
+                    return $output;
+                }
             }
         }
 
@@ -150,17 +156,23 @@ class CvParserService
     private function extractFromDoc(string $filePath): string
     {
         // Try antiword or catdoc
-        if (shell_exec('which antiword')) {
-            $output = shell_exec("antiword \"{$filePath}\"");
-            if ($output) {
-                return $output;
+        if (function_exists('shell_exec')) {
+            $whichResult = @call_user_func('shell_exec', 'which antiword');
+            if ($whichResult) {
+                $output = @call_user_func('shell_exec', "antiword \"{$filePath}\"");
+                if ($output) {
+                    return $output;
+                }
             }
         }
 
-        if (shell_exec('which catdoc')) {
-            $output = shell_exec("catdoc \"{$filePath}\"");
-            if ($output) {
-                return $output;
+        if (function_exists('shell_exec')) {
+            $whichResult = @call_user_func('shell_exec', 'which catdoc');
+            if ($whichResult) {
+                $output = @call_user_func('shell_exec', "catdoc \"{$filePath}\"");
+                if ($output) {
+                    return $output;
+                }
             }
         }
 

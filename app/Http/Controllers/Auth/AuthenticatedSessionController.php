@@ -44,7 +44,18 @@ class AuthenticatedSessionController extends Controller
                     ->whereNull('candidate_id')
                     ->update(['candidate_id' => $candidate->id]);
                 
-                return redirect()->intended(route('candidate.dashboard', absolute: false));
+                // Get intended URL or use candidate dashboard
+                $intended = $request->session()->pull('url.intended');
+                if ($intended) {
+                    // Clean up any double /careers/ prefix
+                    $intended = preg_replace('#/careers/careers/#', '/careers/', $intended);
+                    $intended = preg_replace('#^/careers/careers#', '/careers', $intended);
+                    // Remove leading /careers if it's a relative path that shouldn't have it
+                    $intended = preg_replace('#^/careers(/candidate/dashboard)#', '$1', $intended);
+                    return redirect($intended);
+                }
+                // Fallback: redirect to candidate dashboard (relative path, no /careers prefix)
+                return redirect('/candidate/dashboard');
             }
 
             // Check if employee/user is logged in
@@ -54,7 +65,20 @@ class AuthenticatedSessionController extends Controller
                 $this->activityLogService->logLogin($user, true);
             }
 
-            return redirect()->intended(route('dashboard', absolute: false));
+            // Get intended URL or use dashboard
+            $intended = $request->session()->pull('url.intended');
+            if ($intended) {
+                // Clean up any double /careers/ prefix
+                $intended = preg_replace('#/careers/careers/#', '/careers/', $intended);
+                $intended = preg_replace('#^/careers/careers#', '/careers', $intended);
+                // Remove leading /careers if it's a relative path that shouldn't have it
+                $intended = preg_replace('#^/careers(/dashboard|/admin)#', '$1', $intended);
+                return redirect($intended);
+            }
+            
+            // Fallback: redirect to dashboard (relative path, no /careers prefix)
+            // The dashboard route will then redirect to admin or profile based on user role
+            return redirect('/dashboard');
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Log failed login attempt
             $this->activityLogService->logLogin(null, false);

@@ -16,7 +16,7 @@
 {{ $contact->message }}</p>
 @endcomponent
 
-@component('emails.components.button', ['url' => config('app.url') . '/admin/contact-messages/' . $contact->id])
+@component('emails.components.button', ['url' => route('admin.contact-messages.show', $contact)])
 View in Admin Dashboard
 @endcomponent
 

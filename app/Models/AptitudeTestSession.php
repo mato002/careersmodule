@@ -103,16 +103,23 @@ class AptitudeTestSession extends Model
         $previousStatus = $application->status;
         $newStatus = $previousStatus;
 
-        // If both passed, move to Stage 3
+        // Determine new status based on aptitude test result
         if ($aptitudePassed && $interview1Passed) {
+            // If both aptitude and interview passed, move to Stage 3
             $newStatus = 'stage_2_passed';
         } elseif (!$aptitudePassed) {
-            // If aptitude failed, reject
-            $newStatus = 'sieving_rejected';
+            // If aptitude failed, set status to aptitude_failed
+            $newStatus = 'aptitude_failed';
         } elseif ($aptitudePassed) {
-            // If aptitude passed but interview not yet done, keep current status
-            // Status will be updated when interview is completed
-            return;
+            // If aptitude passed but interview not yet done, update status to 'reviewed'
+            // This indicates aptitude test is passed and waiting for interview
+            // Only update if current status is 'sieving_passed' or 'pending_manual_review'
+            if (in_array($previousStatus, ['sieving_passed', 'pending_manual_review'])) {
+                $newStatus = 'reviewed';
+            } else {
+                // If already in a later stage, don't change status
+                return;
+            }
         }
 
         // Update status if it changed
@@ -120,15 +127,22 @@ class AptitudeTestSession extends Model
             $application->update(['status' => $newStatus]);
             
             // Record status change
+            $notes = '';
+            if ($aptitudePassed && $interview1Passed) {
+                $notes = 'Stage 2 completed: Aptitude test passed and Interview 1 passed';
+            } elseif (!$aptitudePassed) {
+                $notes = 'Aptitude test failed';
+            } elseif ($aptitudePassed) {
+                $notes = 'Aptitude test passed. Waiting for interview.';
+            }
+            
             \App\Models\JobApplicationStatusHistory::create([
                 'job_application_id' => $application->id,
                 'previous_status' => $previousStatus,
                 'new_status' => $newStatus,
                 'changed_by' => null, // System change
                 'source' => 'aptitude_test_completion',
-                'notes' => $aptitudePassed && $interview1Passed 
-                    ? 'Stage 2 completed: Aptitude test passed and Interview 1 passed'
-                    : 'Aptitude test failed',
+                'notes' => $notes,
             ]);
         }
     }

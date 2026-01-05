@@ -1,0 +1,21 @@
+# Example .htaccess for public_html root
+# Add these rules to your existing public_html/.htaccess file
+# Place them BEFORE any existing catch-all rules
+
+# Route /careers to Laravel application
+RewriteEngine On
+
+# If request is for /careers, route to Careers/public/
+RewriteCond %{REQUEST_URI} ^/careers(/.*)?$
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^careers(/.*)?$ /Careers/public/$1 [L]
+
+# If request is for /careers and it's a file (CSS, JS, images), serve it directly
+RewriteCond %{REQUEST_URI} ^/careers/.*$
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^careers/(.*)$ /Careers/public/$1 [L]
+
+# Your existing rules for pradytec.com should continue below...
+
+

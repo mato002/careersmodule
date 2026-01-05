@@ -34,7 +34,7 @@
 @endif
 @endcomponent
 
-@component('emails.components.button', ['url' => config('app.url') . '/admin/job-applications/' . $application->id])
+@component('emails.components.button', ['url' => route('admin.job-applications.show', $application)])
 View Application in Admin Dashboard
 @endcomponent
 

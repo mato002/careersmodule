@@ -27,10 +27,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Custom error page rendering
+        // Custom error page rendering - only show custom 404 if not in debug mode
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Resource not found.'], 404);
+            }
+            // In debug mode, let Laravel show the default error page with details
+            if (config('app.debug')) {
+                return null; // Let Laravel handle it with debug info
             }
             return response()->view('errors.404', [], 404);
         });

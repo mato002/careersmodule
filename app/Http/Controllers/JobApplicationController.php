@@ -277,7 +277,24 @@ class JobApplicationController extends Controller
             return;
         }
 
-        Mail::to($application->email)->send(new JobApplicationConfirmation($application));
+        try {
+            Mail::to($application->email)->send(new JobApplicationConfirmation($application));
+        } catch (\Exception $e) {
+            // Log error but don't fail the application submission
+            \Log::error('Failed to send job application confirmation email', [
+                'application_id' => $application->id,
+                'email' => $application->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // Check if it's a configuration error (like MAIL_HOST not set)
+            if (str_contains($e->getMessage(), 'CHANGE_ME') || 
+                str_contains($e->getMessage(), 'getaddrinfo') ||
+                str_contains($e->getMessage(), 'Connection could not be established')) {
+                \Log::warning('Mail configuration appears to be incomplete. Please configure MAIL_* settings in .env file.');
+            }
+        }
     }
 
     /**

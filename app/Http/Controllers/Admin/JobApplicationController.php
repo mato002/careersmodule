@@ -299,6 +299,7 @@ class JobApplicationController extends Controller
             'pending' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'pending')->count(),
             'sieving_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_passed')->count(),
             'sieving_rejected' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_rejected')->count(),
+            'aptitude_failed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'aptitude_failed')->count(),
             'stage_2_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'stage_2_passed')->count(),
             'hired' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'hired')->count(),
         ];
@@ -457,11 +458,20 @@ class JobApplicationController extends Controller
         $interview->update($validated);
 
         $application = $interview->application;
+        $application->refresh(); // Get latest data including aptitude test status
 
         if ($validated['result'] === 'pass') {
-            if ($interview->interview_type === 'first') {
-                $this->recordStatusChange($application, 'interview_passed', 'interview_result', $validated['feedback'] ?? null);
-                $application->update(['status' => 'interview_passed']);
+            if ($interview->interview_type === 'first' || $interview->interview_type === 'online_interview') {
+                // Check if both aptitude test and interview are passed
+                if ($application->aptitude_test_passed) {
+                    // Both passed, move to stage_2_passed
+                    $this->recordStatusChange($application, 'stage_2_passed', 'interview_result', $validated['feedback'] ?? null);
+                    $application->update(['status' => 'stage_2_passed']);
+                } else {
+                    // Interview passed but aptitude not yet passed (or not taken)
+                    $this->recordStatusChange($application, 'interview_passed', 'interview_result', $validated['feedback'] ?? null);
+                    $application->update(['status' => 'interview_passed']);
+                }
             } elseif ($interview->interview_type === 'second') {
                 $this->recordStatusChange($application, 'hired', 'interview_result', $validated['feedback'] ?? null);
                 $application->update(['status' => 'hired']);
@@ -480,7 +490,7 @@ class JobApplicationController extends Controller
         $this->checkApplicationAccess($application);
         
         $validated = $request->validate([
-            'status' => 'required|in:pending,sieving_passed,sieving_rejected,pending_manual_review,stage_2_passed,reviewed,shortlisted,rejected,interview_scheduled,interview_passed,interview_failed,second_interview,written_test,case_study,hired',
+            'status' => 'required|in:pending,sieving_passed,sieving_rejected,pending_manual_review,aptitude_failed,stage_2_passed,reviewed,shortlisted,rejected,interview_scheduled,interview_passed,interview_failed,second_interview,written_test,case_study,hired',
         ]);
 
         $newStatus = $validated['status'];
@@ -911,7 +921,7 @@ class JobApplicationController extends Controller
         $validated = $request->validate([
             'application_ids' => 'required|array',
             'application_ids.*' => 'exists:job_applications,id',
-            'status' => 'required|in:pending,sieving_passed,sieving_rejected,pending_manual_review,stage_2_passed,reviewed,shortlisted,rejected,interview_scheduled,interview_passed,interview_failed,second_interview,written_test,case_study,hired',
+            'status' => 'required|in:pending,sieving_passed,sieving_rejected,pending_manual_review,aptitude_failed,stage_2_passed,reviewed,shortlisted,rejected,interview_scheduled,interview_passed,interview_failed,second_interview,written_test,case_study,hired',
         ]);
 
         $applications = JobApplication::whereIn('id', $validated['application_ids'])->get();

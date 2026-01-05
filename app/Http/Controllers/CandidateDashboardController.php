@@ -43,6 +43,7 @@ class CandidateDashboardController extends Controller
             'pending' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'pending')->count(),
             'sieving_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_passed')->count(),
             'sieving_rejected' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_rejected')->count(),
+            'aptitude_failed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'aptitude_failed')->count(),
             'stage_2_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'stage_2_passed')->count(),
             'hired' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'hired')->count(),
         ];

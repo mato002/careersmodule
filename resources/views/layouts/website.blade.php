@@ -53,7 +53,9 @@
                 <!-- Desktop Navigation -->
                 <div class="hidden md:flex md:items-center md:space-x-8">
                     <a href="{{ route('careers.index') }}" class="nav-link {{ request()->routeIs('careers.index') ? 'text-teal-700 font-semibold' : 'text-gray-700 hover:text-teal-700' }} transition-colors">Home</a>
-                    <a href="{{ route('about') }}" class="nav-link {{ request()->routeIs('about') ? 'text-teal-700 font-semibold' : 'text-gray-700 hover:text-teal-700' }} transition-colors">About Us</a>
+                    @if(Route::has('about'))
+                        <a href="{{ route('about') }}" class="nav-link {{ request()->routeIs('about') ? 'text-teal-700 font-semibold' : 'text-gray-700 hover:text-teal-700' }} transition-colors">About Us</a>
+                    @endif
                     <a href="{{ route('careers.index') }}" class="nav-link {{ request()->routeIs('careers.*') ? 'text-teal-700 font-semibold' : 'text-gray-700 hover:text-teal-700' }} transition-colors">Careers</a>
                 </div>
 
@@ -79,7 +81,9 @@
         <div id="mobile-menu" class="hidden md:hidden bg-white border-t shadow-lg" role="menu" aria-label="Mobile navigation menu">
             <div class="px-4 py-4 space-y-3">
                 <a href="{{ route('careers.index') }}" class="block py-3 text-gray-700 hover:text-teal-700 transition-colors font-medium border-b border-gray-100">Home</a>
-                <a href="{{ route('about') }}" class="block py-3 text-gray-700 hover:text-teal-700 transition-colors font-medium border-b border-gray-100">About Us</a>
+                @if(Route::has('about'))
+                    <a href="{{ route('about') }}" class="block py-3 text-gray-700 hover:text-teal-700 transition-colors font-medium border-b border-gray-100">About Us</a>
+                @endif
                 <a href="{{ route('careers.index') }}" class="block py-3 text-gray-700 hover:text-teal-700 transition-colors font-medium border-b border-gray-100">Careers</a>
             </div>
         </div>
@@ -177,9 +181,10 @@
                     <h3 class="text-white font-semibold mb-4">Quick Links</h3>
                     <ul class="space-y-2 text-sm">
                         <li><a href="{{ route('careers.index') }}" class="hover:text-white transition-colors">Home</a></li>
-                        <li><a href="{{ route('about') }}" class="hover:text-white transition-colors">About Us</a></li>
                         <li><a href="{{ route('careers.index') }}" class="hover:text-white transition-colors">Careers</a></li>
-                        <li><a href="{{ route('company.profile') }}" target="_blank" rel="noopener" class="hover:text-white transition-colors">Company Profile (PDF)</a></li>
+                        @if(Route::has('company.profile'))
+                            <li><a href="{{ route('company.profile') }}" target="_blank" rel="noopener" class="hover:text-white transition-colors">Company Profile (PDF)</a></li>
+                        @endif
                     </ul>
                 </div>
 
@@ -220,24 +225,30 @@
                             {{ session('newsletter_error') }}
                         </div>
                     @endif
-                    @if ($errors->has('email'))
+                    @error('email')
                         <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                            {{ $errors->first('email') }}
+                            {{ $message }}
+                        </div>
+                    @enderror
+                    @if(Route::has('newsletter.subscribe'))
+                        <form action="{{ route('newsletter.subscribe') }}" method="POST" class="space-y-3">
+                            @csrf
+                            <div>
+                                <input type="email" name="email" required 
+                                    value="{{ old('email') }}"
+                                    placeholder="Enter your email address"
+                                    class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all">
+                            </div>
+                            <button type="submit" 
+                                class="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105">
+                                Subscribe
+                            </button>
+                        </form>
+                    @else
+                        <div class="text-sm text-gray-400">
+                            Newsletter subscription is currently unavailable.
                         </div>
                     @endif
-                    <form action="{{ route('newsletter.subscribe') }}" method="POST" class="space-y-3">
-                        @csrf
-                        <div>
-                            <input type="email" name="email" required 
-                                value="{{ old('email') }}"
-                                placeholder="Enter your email address"
-                                class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all">
-                        </div>
-                        <button type="submit" 
-                            class="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-300 transform hover:scale-105">
-                            Subscribe
-                        </button>
-                    </form>
                 </div>
             </div>
 
@@ -600,54 +611,66 @@
         // Accept cookies
         if (cookieConsentAccept) {
             cookieConsentAccept.addEventListener('click', function() {
-                fetch('{{ route("cookie.consent.accept") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        cookieConsentBanner.classList.add('hidden');
+                @if(Route::has('cookie.consent.accept'))
+                    fetch('{{ route("cookie.consent.accept") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            cookieConsentBanner.classList.add('hidden');
+                            // Set cookie manually as fallback
+                            document.cookie = 'cookie_consent=accepted; max-age=31536000; path=/; SameSite=Lax';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error accepting cookies:', error);
                         // Set cookie manually as fallback
                         document.cookie = 'cookie_consent=accepted; max-age=31536000; path=/; SameSite=Lax';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error accepting cookies:', error);
-                    // Set cookie manually as fallback
+                        cookieConsentBanner.classList.add('hidden');
+                    });
+                @else
+                    // Route doesn't exist, just set cookie and hide banner
                     document.cookie = 'cookie_consent=accepted; max-age=31536000; path=/; SameSite=Lax';
                     cookieConsentBanner.classList.add('hidden');
-                });
+                @endif
             });
         }
 
         // Reject cookies
         if (cookieConsentReject) {
             cookieConsentReject.addEventListener('click', function() {
-                fetch('{{ route("cookie.consent.reject") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        cookieConsentBanner.classList.add('hidden');
+                @if(Route::has('cookie.consent.reject'))
+                    fetch('{{ route("cookie.consent.reject") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            cookieConsentBanner.classList.add('hidden');
+                            // Set cookie manually as fallback
+                            document.cookie = 'cookie_consent=rejected; max-age=31536000; path=/; SameSite=Lax';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error rejecting cookies:', error);
                         // Set cookie manually as fallback
                         document.cookie = 'cookie_consent=rejected; max-age=31536000; path=/; SameSite=Lax';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error rejecting cookies:', error);
-                    // Set cookie manually as fallback
+                        cookieConsentBanner.classList.add('hidden');
+                    });
+                @else
+                    // Route doesn't exist, just set cookie and hide banner
                     document.cookie = 'cookie_consent=rejected; max-age=31536000; path=/; SameSite=Lax';
                     cookieConsentBanner.classList.add('hidden');
-                });
+                @endif
             });
         }
 

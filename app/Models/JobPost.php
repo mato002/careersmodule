@@ -31,12 +31,44 @@ class JobPost extends Model
         'is_active' => 'boolean',
     ];
 
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
+
+    /**
+     * Retrieve the model for bound value.
+     * When using {jobPost:slug} in routes, Laravel passes $field = 'slug'
+     * This ensures we always look up by slug for route model binding
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        // When using {jobPost:slug}, $field will be 'slug'
+        // When using default binding, $field will be null and we use getRouteKeyName() which returns 'slug'
+        if ($field === 'slug' || $field === null) {
+            return $this->where('slug', $value)->firstOrFail();
+        }
+        
+        // Fallback to parent implementation for other fields
+        return parent::resolveRouteBinding($value, $field);
+    }
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($jobPost) {
             if (empty($jobPost->slug)) {
+                $jobPost->slug = Str::slug($jobPost->title);
+            }
+        });
+
+        static::updating(function ($jobPost) {
+            // Update slug if title changed
+            if ($jobPost->isDirty('title') && empty($jobPost->slug)) {
                 $jobPost->slug = Str::slug($jobPost->title);
             }
         });
