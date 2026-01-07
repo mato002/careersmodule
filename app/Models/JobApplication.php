@@ -128,6 +128,11 @@ class JobApplication extends Model
         return $this->hasOne(CvParsedData::class);
     }
 
+    public function tokenUsageLogs(): HasMany
+    {
+        return $this->hasMany(TokenUsageLog::class);
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', 'pending');

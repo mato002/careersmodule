@@ -274,6 +274,22 @@
 
                     <!-- Additional Info Tab -->
                     <div id="content-additional" class="tab-content hidden">
+                        <!-- AI Sieving Actions (Always Visible) -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
+                            <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">AI Sieving & Evaluation</h2>
+                            <div class="flex flex-wrap gap-3">
+                                <form method="POST" action="{{ route('admin.job-applications.re-sieving', $application) }}" class="inline-block" id="re-sieve-form-additional">
+                                    @csrf
+                                    <button type="button" onclick="confirmReSieve('re-sieve-form-additional', {{ $application->aiSievingDecision ? 'true' : 'false' }})" class="px-4 py-2 text-sm rounded-xl border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-semibold">
+                                        🔄 {{ $application->aiSievingDecision ? 'Re-' : '' }}Sieve with Improved AI
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">
+                                <strong>{{ $application->aiSievingDecision ? 'Re-' : '' }}Sieve with Improved AI:</strong> {{ $application->aiSievingDecision ? 'Re-' : '' }}Evaluates application with latest AI improvements including gibberish detection, CV validation, and CV-form data comparison.
+                            </p>
+                        </div>
+
                         <!-- CV & AI Processing Actions -->
                         @if($application->cv_path)
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
@@ -1041,11 +1057,24 @@
                     @endif
                 @endif
 
-                <!-- AI Sieving Decision -->
+                <!-- AI Sieving Decision / Re-Sieving -->
                 @if($application->aiSievingDecision)
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
-                        <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">AI Sieving Decision</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide">AI Sieving Decision</h2>
+                            <form method="POST" action="{{ route('admin.job-applications.re-sieving', $application) }}" class="inline-block" id="re-sieve-form-sidebar">
+                                @csrf
+                                <button type="button" onclick="confirmReSieve('re-sieve-form-sidebar', true)" class="px-3 py-1.5 text-xs rounded-lg border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-semibold">
+                                    🔄 Re-Sieve
+                                </button>
+                            </form>
+                        </div>
                         <div class="space-y-4">
+                            @if($application->aiSievingDecision->updated_at)
+                            <div class="text-xs text-slate-400 italic mb-2">
+                                Last updated: {{ $application->aiSievingDecision->updated_at->format('M d, Y H:i:s') }}
+                            </div>
+                            @endif
                             <div class="flex items-center justify-between">
                                 <div>
                                     <span class="text-sm text-slate-500">Decision:</span>
@@ -1108,6 +1137,22 @@
                                     </ul>
                                 </div>
                             @endif
+                        </div>
+                    </div>
+                @else
+                    <!-- Re-Sieving Button (when no decision exists yet) -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-2">AI Sieving Decision</h2>
+                                <p class="text-xs text-slate-500">This application has not been sieved yet. Click the button to evaluate with improved AI logic.</p>
+                            </div>
+                            <form method="POST" action="{{ route('admin.job-applications.re-sieving', $application) }}" class="inline-block" id="re-sieve-form-new">
+                                @csrf
+                                <button type="button" onclick="confirmReSieve('re-sieve-form-new', false)" class="px-4 py-2 text-sm rounded-xl border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 font-semibold">
+                                    🔄 Sieve with Improved AI
+                                </button>
+                            </form>
                         </div>
                     </div>
                 @endif
@@ -2235,5 +2280,41 @@
                 @endif
             }
         });
+
+        // Re-Sieve Confirmation with SweetAlert
+        function confirmReSieve(formId, isReSieve) {
+            const action = isReSieve ? 're-evaluate' : 'evaluate';
+            const title = isReSieve ? 'Re-Sieve Application?' : 'Sieve Application?';
+            const text = `This will ${action} the application with improved AI logic (gibberish detection, CV validation, etc.). Continue?`;
+            
+            Swal.fire({
+                title: title,
+                text: text,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#10b981', // teal-600
+                cancelButtonColor: '#6b7280', // gray-500
+                confirmButtonText: 'Yes, Continue',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading state
+                    Swal.fire({
+                        title: isReSieve ? 'Re-Sieving...' : 'Sieving...',
+                        text: 'Please wait while we process the application.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Submit the form
+                    document.getElementById(formId).submit();
+                }
+            });
+        }
     </script>
 @endsection

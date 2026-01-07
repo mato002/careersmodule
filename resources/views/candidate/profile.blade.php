@@ -14,7 +14,7 @@
 @endsection
 
 @section('content')
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="w-full space-y-6">
         @if (session('status'))
             <div class="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-teal-900 shadow-sm">
                 {{ session('status') === 'profile-updated' ? 'Profile updated successfully!' : (session('status') === 'password-updated' ? 'Password updated successfully!' : session('status')) }}

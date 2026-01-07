@@ -101,6 +101,9 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             Route::post('/api', [ApiSettingsController::class, 'update'])->name('api.update');
             Route::get('/general', [GeneralSettingsController::class, 'edit'])->name('general.edit');
             Route::post('/general', [GeneralSettingsController::class, 'update'])->name('general.update');
+            Route::get('/ai-prompts', [\App\Http\Controllers\Admin\AIPromptSettingsController::class, 'index'])->name('ai-prompts.index');
+            Route::post('/ai-prompts', [\App\Http\Controllers\Admin\AIPromptSettingsController::class, 'update'])->name('ai-prompts.update');
+            Route::post('/ai-prompts/reset', [\App\Http\Controllers\Admin\AIPromptSettingsController::class, 'reset'])->name('ai-prompts.reset');
             
             // Team Members
             Route::resource('team-members', AdminTeamMemberController::class);
@@ -177,6 +180,8 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             Route::post('job-applications/{application}/parse-cv', [AdminJobApplicationController::class, 'parseCv'])->name('job-applications.parse-cv');
             Route::post('job-applications/{application}/analyze-with-ai', [AdminJobApplicationController::class, 'analyzeWithAI'])->name('job-applications.analyze-with-ai');
             Route::post('job-applications/{application}/process-cv-and-ai', [AdminJobApplicationController::class, 'processCvAndAI'])->name('job-applications.process-cv-and-ai');
+            Route::post('job-applications/{application}/re-sieving', [AdminJobApplicationController::class, 'reSieving'])->name('job-applications.re-sieving');
+            Route::post('job-applications/bulk-re-sieving', [AdminJobApplicationController::class, 'bulkReSieving'])->name('job-applications.bulk-re-sieving');
         });
         
         // Token Management Routes - Accessible by Admin
@@ -186,6 +191,7 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             Route::get('tokens/purchases', [AdminTokenController::class, 'purchases'])->name('tokens.purchases');
             Route::post('tokens/purchases', [AdminTokenController::class, 'createPurchase'])->name('tokens.purchases.create');
             Route::post('tokens/allocate', [AdminTokenController::class, 'allocate'])->name('tokens.allocate');
+            Route::post('tokens/apply-plan', [AdminTokenController::class, 'applyPlan'])->name('tokens.apply-plan');
             Route::get('tokens/balance', [AdminTokenController::class, 'balance'])->name('tokens.balance');
             Route::get('tokens/stats', [AdminTokenController::class, 'stats'])->name('tokens.stats');
         });

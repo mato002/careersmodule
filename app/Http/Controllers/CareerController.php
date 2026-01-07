@@ -47,4 +47,3 @@ class CareerController extends Controller
         return view('careers.show', compact('job', 'relatedJobs', 'generalSettings'));
     }
 }
-

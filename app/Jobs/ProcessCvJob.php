@@ -40,6 +40,17 @@ class ProcessCvJob implements ShouldQueue
 
             // Generate AI summary and analysis
             if (config('ai.enable_ai_analysis', true)) {
+                // Ensure application has company_id before AI operations
+                if (!$this->application->company_id && $this->application->jobPost) {
+                    if ($this->application->jobPost->company_id) {
+                        $this->application->update(['company_id' => $this->application->jobPost->company_id]);
+                        Log::info('Set company_id on application from job post', [
+                            'application_id' => $this->application->id,
+                            'company_id' => $this->application->jobPost->company_id,
+                        ]);
+                    }
+                }
+                
                 $analysis = $aiAnalysis->analyzeCv($this->application);
                 
                 // Update application with AI summary

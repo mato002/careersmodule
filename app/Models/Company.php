@@ -55,11 +55,12 @@ class Company extends Model
     public function activeTokenAllocation()
     {
         return $this->tokenAllocations()
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'tracking_only'])
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
             })
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END") // Prefer 'active' over 'tracking_only'
             ->orderBy('allocated_at', 'desc')
             ->first();
     }

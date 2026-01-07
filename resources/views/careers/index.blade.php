@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
-    <meta name="description" content="{{ $generalSettings->meta_description ?? ($generalSettings->company_name ?? 'Company') . ' - Leading recruitment and career opportunities platform. Connecting talent with opportunities.' }}">
-    <meta name="keywords" content="{{ $generalSettings->meta_keywords ?? 'careers, jobs, recruitment, job opportunities, career opportunities, talent acquisition' }}">
-    <title>Careers - {{ $generalSettings->company_name ?? 'Company' }}</title>
+    <meta name="description" content="{{ ($generalSettings && $generalSettings->meta_description) ? $generalSettings->meta_description : (($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name . ' - Leading recruitment and career opportunities platform. Connecting talent with opportunities.' : 'Company - Leading recruitment and career opportunities platform. Connecting talent with opportunities.') }}">
+    <meta name="keywords" content="{{ ($generalSettings && $generalSettings->meta_keywords) ? $generalSettings->meta_keywords : 'careers, jobs, recruitment, job opportunities, career opportunities, talent acquisition' }}">
+    <title>Careers - {{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company' }}</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -22,15 +22,15 @@
                 <!-- Logo -->
                 <div class="flex-shrink-0">
                     <a href="{{ route('careers.index') }}" class="flex items-center space-x-2">
-                        @if($generalSettings->logo_path ?? null)
-                            <img src="{{ asset('storage/' . $generalSettings->logo_path) }}" alt="{{ $generalSettings->company_name ?? 'Company' }}" class="h-8 w-auto">
+                        @if($generalSettings && $generalSettings->logo_path)
+                            <img src="{{ asset('storage/' . $generalSettings->logo_path) }}" alt="{{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company' }}" class="h-8 w-auto">
                         @else
-                            <div class="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-700 to-teal-800 rounded-lg flex items-center justify-center shadow-lg">
-                                <span class="text-amber-400 font-bold text-lg sm:text-xl">{{ mb_substr($generalSettings->company_name ?? 'Company', 0, 1) }}</span>
-                            </div>
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-700 to-teal-800 rounded-lg flex items-center justify-center shadow-lg">
+                                <span class="text-amber-400 font-bold text-lg sm:text-xl">{{ mb_substr(($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company', 0, 1) }}</span>
+                        </div>
                         @endif
-                        <span class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 hidden sm:inline">{{ $generalSettings->company_name ?? 'Company' }}</span>
-                        <span class="text-base font-bold text-gray-900 sm:hidden">{{ mb_substr($generalSettings->company_name ?? 'Company', 0, 10) }}</span>
+                        <span class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 hidden sm:inline">{{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company' }}</span>
+                        <span class="text-base font-bold text-gray-900 sm:hidden">{{ mb_substr(($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company', 0, 10) }}</span>
                     </a>
                 </div>
 
@@ -67,7 +67,7 @@
             <div class="absolute inset-0 bg-black opacity-10"></div>
             <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4">Join Our Team</h1>
-                <p class="text-lg sm:text-xl text-teal-100">Explore exciting career opportunities with {{ $generalSettings->company_name ?? 'us' }}</p>
+                <p class="text-lg sm:text-xl text-teal-100">Explore exciting career opportunities with {{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'us' }}</p>
             </div>
         </section>
 
@@ -108,8 +108,8 @@
                 <div class="mb-8 md:mb-12">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                         <div>
-                            <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">Job Openings</h2>
-                            <p class="text-gray-600 text-sm sm:text-base">Browse our current and past job postings. Closed positions are kept for reference.</p>
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2">Job Openings</h2>
+                    <p class="text-gray-600 text-sm sm:text-base">Browse our current and past job postings. Closed positions are kept for reference.</p>
                         </div>
                         <div class="text-sm text-gray-600">
                             Showing <span class="font-semibold">{{ $jobs->firstItem() ?? 0 }}-{{ $jobs->lastItem() ?? 0 }}</span> of <span class="font-semibold">{{ $jobs->total() }}</span> positions
@@ -119,7 +119,7 @@
 
                 <!-- Jobs Grid -->
                 @if($jobs->count() > 0)
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                         @foreach($jobs as $job)
                             <article class="bg-white border border-gray-200 rounded-xl shadow-lg p-6 hover:shadow-2xl transition-all transform hover:-translate-y-2 flex flex-col">
                                 <!-- Job Header -->
@@ -157,24 +157,24 @@
                                 <div class="pt-4 border-t border-gray-200 mt-auto">
                                     <!-- Tags -->
                                     <div class="flex items-center gap-2 flex-wrap mb-4">
-                                        <span class="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">
-                                            {{ ucfirst(str_replace('-', ' ', $job->employment_type)) }}
-                                        </span>
-                                        @php
-                                            $status = $job->application_status;
-                                            $statusClasses = $job->status_badge_classes;
-                                            $statusLabel = $job->status_label;
-                                        @endphp
-                                        <span class="text-xs font-semibold px-3 py-1 rounded-full {{ $statusClasses }}">
-                                            {{ $statusLabel }}
-                                        </span>
-                                    </div>
+                                    <span class="text-xs font-semibold px-3 py-1 rounded-full bg-teal-100 text-teal-800">
+                                        {{ ucfirst(str_replace('-', ' ', $job->employment_type)) }}
+                                    </span>
+                                    @php
+                                        $status = $job->application_status;
+                                        $statusClasses = $job->status_badge_classes;
+                                        $statusLabel = $job->status_label;
+                                    @endphp
+                                    <span class="text-xs font-semibold px-3 py-1 rounded-full {{ $statusClasses }}">
+                                        {{ $statusLabel }}
+                                    </span>
+                                </div>
                                     
                                     <!-- Action Button -->
                                     <a href="{{ route('careers.show', $job->slug) }}" class="block w-full px-4 py-2.5 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold text-sm text-center">
-                                        View Details
-                                    </a>
-                                </div>
+                                    View Details
+                                </a>
+                            </div>
                             </article>
                         @endforeach
                     </div>
@@ -188,23 +188,23 @@
                 @else
                     <!-- Empty State -->
                     <div class="col-span-full text-center text-gray-600 bg-white rounded-2xl shadow-sm py-16">
-                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <p class="text-lg font-semibold mb-2">No job openings at the moment</p>
-                        <p class="text-sm">Check back later for new opportunities.</p>
+                            <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="text-lg font-semibold mb-2">No job openings at the moment</p>
+                            <p class="text-sm">Check back later for new opportunities.</p>
                     </div>
                 @endif
             </div>
         </section>
 
         <!-- Company Information Section -->
-        @if($generalSettings->company_description ?? null)
+        @if($generalSettings && $generalSettings->company_description)
         <section class="py-12 md:py-16 bg-gray-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="max-w-3xl mx-auto text-center">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">About {{ $generalSettings->company_name ?? 'Us' }}</h2>
-                    <p class="text-gray-600 leading-relaxed">{{ $generalSettings->company_description }}</p>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">About {{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Us' }}</h2>
+                    <p class="text-gray-600 leading-relaxed">{{ $generalSettings && $generalSettings->company_description ? $generalSettings->company_description : '' }}</p>
                 </div>
             </div>
         </section>
@@ -213,7 +213,7 @@
         <!-- Call to Action Section -->
         <section class="py-12 sm:py-16 md:py-20 bg-gradient-to-r from-teal-800 to-teal-700 text-white">
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6">Why Join {{ $generalSettings->company_name ?? 'Us' }}?</h2>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6">Why Join {{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Us' }}?</h2>
                 <p class="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-teal-100 max-w-2xl mx-auto">
                     Be part of a team that's making a difference through innovative recruitment and career development solutions.
                 </p>
@@ -231,16 +231,16 @@
                 <!-- Company Info -->
                 <div>
                     <div class="flex items-center space-x-2 mb-4">
-                        @if($generalSettings->logo_path ?? null)
-                            <img src="{{ asset('storage/' . $generalSettings->logo_path) }}" alt="{{ $generalSettings->company_name ?? 'Company' }}" class="h-8 w-auto">
+                        @if($generalSettings && $generalSettings->logo_path)
+                            <img src="{{ asset('storage/' . $generalSettings->logo_path) }}" alt="{{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company' }}" class="h-8 w-auto">
                         @else
                             <div class="w-10 h-10 bg-gradient-to-br from-teal-700 to-teal-800 rounded-lg flex items-center justify-center">
-                                <span class="text-amber-400 font-bold text-xl">{{ mb_substr($generalSettings->company_name ?? 'Company', 0, 1) }}</span>
+                                <span class="text-amber-400 font-bold text-xl">{{ mb_substr(($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company', 0, 1) }}</span>
                             </div>
                         @endif
-                        <span class="text-xl font-bold text-white">{{ $generalSettings->company_name ?? 'Company' }}</span>
+                        <span class="text-xl font-bold text-white">{{ ($generalSettings && $generalSettings->company_name) ? $generalSettings->company_name : 'Company' }}</span>
                     </div>
-                    @if($generalSettings->company_description)
+                    @if($generalSettings && $generalSettings->company_description)
                         <p class="text-sm text-gray-400 mb-4">{{ Str::limit($generalSettings->company_description, 120) }}</p>
                     @endif
                 </div>
@@ -251,10 +251,10 @@
                     <ul class="space-y-2 text-sm">
                         <li><a href="{{ route('careers.index') }}" class="text-gray-400 hover:text-white transition-colors">Home</a></li>
                         <li><a href="{{ route('careers.index') }}#jobs" class="text-gray-400 hover:text-white transition-colors">Job Openings</a></li>
-                        @if($generalSettings->privacy_policy_url)
+                        @if(($generalSettings->privacy_policy_url ?? null))
                             <li><a href="{{ $generalSettings->privacy_policy_url }}" class="text-gray-400 hover:text-white transition-colors" target="_blank">Privacy Policy</a></li>
                         @endif
-                        @if($generalSettings->terms_of_service_url)
+                        @if(($generalSettings->terms_of_service_url ?? null))
                             <li><a href="{{ $generalSettings->terms_of_service_url }}" class="text-gray-400 hover:text-white transition-colors" target="_blank">Terms of Service</a></li>
                         @endif
                     </ul>
@@ -264,7 +264,7 @@
                 <div>
                     <h3 class="text-white font-semibold mb-4">Contact</h3>
                     <ul class="space-y-2 text-sm text-gray-400">
-                        @if($generalSettings->company_email)
+                        @if($generalSettings && $generalSettings->company_email)
                             <li class="flex items-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -272,7 +272,7 @@
                                 <a href="mailto:{{ $generalSettings->company_email }}" class="hover:text-white transition-colors">{{ $generalSettings->company_email }}</a>
                             </li>
                         @endif
-                        @if($generalSettings->company_phone)
+                        @if($generalSettings && $generalSettings->company_phone)
                             <li class="flex items-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -280,7 +280,7 @@
                                 <a href="tel:{{ $generalSettings->company_phone }}" class="hover:text-white transition-colors">{{ $generalSettings->company_phone }}</a>
                             </li>
                         @endif
-                        @if($generalSettings->company_address)
+                        @if($generalSettings && $generalSettings->company_address)
                             <li class="flex items-start">
                                 <svg class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -292,7 +292,7 @@
                     </ul>
                     
                     <!-- Social Links -->
-                    @if($generalSettings->linkedin_url || $generalSettings->facebook_url || $generalSettings->twitter_url)
+                    @if($generalSettings && ($generalSettings->linkedin_url || $generalSettings->facebook_url || $generalSettings->twitter_url))
                         <div class="flex items-center space-x-4 mt-4">
                             @if($generalSettings->linkedin_url)
                                 <a href="{{ $generalSettings->linkedin_url }}" target="_blank" class="text-gray-400 hover:text-white transition-colors" aria-label="LinkedIn">
@@ -317,7 +317,7 @@
             <!-- Copyright -->
             <div class="border-t border-gray-800 pt-8 text-center">
                 <p class="text-sm text-gray-400">
-                    &copy; {{ date('Y') }} {{ $generalSettings->company_name ?? 'Company' }}. {{ $generalSettings->copyright_text ?? 'All rights reserved.' }}
+                    &copy; {{ date('Y') }} {{ ($generalSettings->company_name ?? null) ?? 'Company' }}. {{ ($generalSettings->copyright_text ?? null) ?? 'All rights reserved.' }}
                 </p>
             </div>
         </div>

@@ -24,3 +24,5 @@ Route::post('/{jobPost:slug}/apply', [JobApplicationController::class, 'store'])
 
 
 
+
+

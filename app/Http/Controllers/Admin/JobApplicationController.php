@@ -1220,5 +1220,215 @@ class JobApplicationController extends Controller
             return back()->withErrors(['error' => 'Failed to queue processing: ' . $e->getMessage()]);
         }
     }
+
+    /**
+     * Re-sieve an application with improved AI logic
+     * This will re-evaluate the application using the latest AI improvements
+     */
+    public function reSieving(JobApplication $application): RedirectResponse
+    {
+        $this->checkApplicationAccess($application);
+        
+        try {
+            // Check token availability
+            $user = auth()->user();
+            $company = $user && $user->isClient() && $user->company_id 
+                ? $user->company 
+                : \App\Models\Company::first();
+            
+            // Check token availability (warning only, don't block)
+            $tokenWarning = null;
+            if ($company) {
+                $tokenService = app(\App\Services\TokenService::class);
+                $estimatedTokens = $tokenService->estimateTokens('cv_analyze', 5000) + 
+                                  $tokenService->estimateTokens('scoring', 5000);
+                
+                if (!$tokenService->hasEnoughTokens($company->id, $estimatedTokens)) {
+                    $tokenWarning = "Warning: Insufficient tokens available. Re-sieving may fail. Please purchase more tokens.";
+                    \Log::warning('Re-sieving attempted with insufficient tokens', [
+                        'application_id' => $application->id,
+                        'company_id' => $company->id,
+                        'estimated_tokens' => $estimatedTokens,
+                        'available_tokens' => $company->total_remaining_tokens ?? 0,
+                    ]);
+                    // Continue anyway - let the AI service handle the error
+                }
+            }
+            
+            // Store previous values for comparison
+            $previousDecision = $application->aiSievingDecision;
+            $previousScore = $previousDecision?->ai_score;
+            $previousDecisionType = $previousDecision?->ai_decision;
+            
+            // Re-run AI analysis first (to get updated CV validation)
+            $aiAnalysis = new AIAnalysisService();
+            $analysis = $aiAnalysis->analyzeCv($application);
+            $applicationAnalysis = $aiAnalysis->analyzeApplication($application);
+            
+            // Log what AI returned
+            \Log::info('Re-sieving: AI Analysis Results', [
+                'application_id' => $application->id,
+                'cv_analysis' => !empty($analysis),
+                'application_analysis' => !empty($applicationAnalysis),
+                'ai_score' => $applicationAnalysis['match_score'] ?? null,
+                'ai_confidence' => $applicationAnalysis['confidence'] ?? null,
+            ]);
+            
+            // Update application with new AI analysis
+            if (!empty($analysis)) {
+                $application->update([
+                    'ai_summary' => $analysis['summary'] ?? $application->ai_summary,
+                    'ai_details' => json_encode($analysis, JSON_PRETTY_PRINT),
+                ]);
+            }
+            
+            // Re-run sieving with improved logic
+            $sievingService = new \App\Services\AISievingService();
+            
+            // Delete existing decision to force recreation
+            if ($application->aiSievingDecision) {
+                $application->aiSievingDecision->delete();
+            }
+            
+            // Re-evaluate (this will create a new decision)
+            $decision = $sievingService->evaluate($application);
+            
+            // Force refresh the relationship
+            $application->refresh();
+            $application->load('aiSievingDecision');
+            
+            // Reload the decision to ensure we have the latest
+            $decision->refresh();
+            
+            // Log the re-sieving with detailed comparison
+            \Log::info('Application re-sieved - Detailed Results', [
+                'application_id' => $application->id,
+                'previous_score' => $previousScore,
+                'new_score' => $decision->ai_score,
+                'previous_decision' => $previousDecisionType,
+                'new_decision' => $decision->ai_decision,
+                'previous_confidence' => $previousDecision?->ai_confidence,
+                'new_confidence' => $decision->ai_confidence,
+                'previous_strengths_count' => count($previousDecision?->ai_strengths ?? []),
+                'new_strengths_count' => count($decision->ai_strengths ?? []),
+                'previous_weaknesses_count' => count($previousDecision?->ai_weaknesses ?? []),
+                'new_weaknesses_count' => count($decision->ai_weaknesses ?? []),
+                'cv_validation' => $sievingService->validateCvPublic($application),
+            ]);
+            
+            // Build detailed success message
+            $message = 'Application re-sieved successfully! ';
+            $changes = [];
+            
+            if ($previousScore != $decision->ai_score) {
+                $changes[] = "Score: {$previousScore} → {$decision->ai_score}";
+            }
+            if ($previousDecisionType != $decision->ai_decision) {
+                $changes[] = "Decision: " . strtoupper($previousDecisionType ?? 'N/A') . " → " . strtoupper($decision->ai_decision);
+            }
+            
+            if (!empty($changes)) {
+                $message .= 'Changes: ' . implode(', ', $changes);
+            } else {
+                $message .= 'No changes detected (application may already be correctly evaluated).';
+            }
+            
+            // Add token warning if applicable
+            if ($tokenWarning) {
+                return back()->with('warning', $message . ' | ' . $tokenWarning);
+            }
+            
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            \Log::error('Re-sieving failed', [
+                'application_id' => $application->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            $errorMessage = $e->getMessage();
+            if (str_contains($errorMessage, 'Insufficient tokens')) {
+                return back()->withErrors(['error' => $errorMessage]);
+            }
+            
+            return back()->withErrors(['error' => 'Re-sieving failed: ' . $errorMessage]);
+        }
+    }
+
+    /**
+     * Bulk re-sieve multiple applications
+     */
+    public function bulkReSieving(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'application_ids' => 'required|array',
+            'application_ids.*' => 'exists:job_applications,id',
+        ]);
+
+        $applicationIds = $validated['application_ids'];
+        $successCount = 0;
+        $errorCount = 0;
+        $errors = [];
+
+        foreach ($applicationIds as $applicationId) {
+            try {
+                $application = JobApplication::findOrFail($applicationId);
+                $this->checkApplicationAccess($application);
+                
+                // Check token availability
+                $user = auth()->user();
+                $company = $user && $user->isClient() && $user->company_id 
+                    ? $user->company 
+                    : \App\Models\Company::first();
+                
+                if ($company) {
+                    $tokenService = app(\App\Services\TokenService::class);
+                    $estimatedTokens = $tokenService->estimateTokens('cv_analyze', 5000) + 
+                                      $tokenService->estimateTokens('scoring', 5000);
+                    
+                    if (!$tokenService->hasEnoughTokens($company->id, $estimatedTokens)) {
+                        $errors[] = "Application #{$applicationId}: Insufficient tokens";
+                        $errorCount++;
+                        continue;
+                    }
+                }
+                
+                // Re-run AI analysis
+                $aiAnalysis = new AIAnalysisService();
+                $analysis = $aiAnalysis->analyzeCv($application);
+                $applicationAnalysis = $aiAnalysis->analyzeApplication($application);
+                
+                if (!empty($analysis)) {
+                    $application->update([
+                        'ai_summary' => $analysis['summary'] ?? $application->ai_summary,
+                        'ai_details' => json_encode($analysis, JSON_PRETTY_PRINT),
+                    ]);
+                }
+                
+                // Re-run sieving
+                $sievingService = new \App\Services\AISievingService();
+                $sievingService->evaluate($application);
+                
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error('Bulk re-sieving failed for application', [
+                    'application_id' => $applicationId,
+                    'error' => $e->getMessage()
+                ]);
+                $errors[] = "Application #{$applicationId}: " . $e->getMessage();
+                $errorCount++;
+            }
+        }
+
+        $message = "Re-sieved {$successCount} application(s) successfully.";
+        if ($errorCount > 0) {
+            $message .= " {$errorCount} failed.";
+        }
+
+        if ($errorCount > 0 && count($errors) <= 5) {
+            return back()->with('warning', $message)->with('errors', $errors);
+        }
+
+        return back()->with('success', $message);
+    }
 }
 

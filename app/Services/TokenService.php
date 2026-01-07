@@ -67,7 +67,43 @@ class TokenService
     }
 
     /**
+     * Get or create an active allocation for a company
+     * Creates a "tracking_only" allocation if none exists (for postpaid billing)
+     */
+    public function getOrCreateAllocation(int $companyId): CompanyTokenAllocation
+    {
+        $allocation = $this->getActiveAllocation($companyId);
+
+        if (!$allocation) {
+            Log::info("No active allocation found for company {$companyId}, creating tracking-only allocation", [
+                'company_id' => $companyId,
+            ]);
+
+            // Create a tracking-only allocation (unlimited, for billing purposes)
+            $allocation = CompanyTokenAllocation::create([
+                'company_id' => $companyId,
+                'token_purchase_id' => null,
+                'allocated_tokens' => 0, // Unlimited for tracking
+                'used_tokens' => 0,
+                'remaining_tokens' => 999999999, // Large number for tracking-only
+                'allocated_at' => now(),
+                'expires_at' => null,
+                'status' => 'tracking_only', // Special status for postpaid/tracking
+                'notes' => 'Auto-created tracking-only allocation for usage monitoring',
+            ]);
+
+            Log::info('Created tracking-only allocation', [
+                'allocation_id' => $allocation->id,
+                'company_id' => $companyId,
+            ]);
+        }
+
+        return $allocation;
+    }
+
+    /**
      * Deduct tokens after AI operation
+     * ALWAYS tracks usage, even if no allocation exists (for billing purposes)
      */
     public function deductTokens(
         int $companyId,
@@ -77,30 +113,59 @@ class TokenService
         ?int $jobApplicationId = null
     ): bool {
         return DB::transaction(function () use ($companyId, $tokensUsed, $operationType, $metadata, $jobApplicationId) {
-            // Get active allocation
-            $allocation = $this->getActiveAllocation($companyId);
-
-            if (!$allocation) {
-                Log::error("No active token allocation found for company {$companyId}");
-                return false;
-            }
-
-            // Check if enough tokens
-            if ($allocation->remaining_tokens < $tokensUsed) {
-                Log::warning("Insufficient tokens for company {$companyId}. Required: {$tokensUsed}, Available: {$allocation->remaining_tokens}");
-                return false;
-            }
+            Log::info('Token deduction started', [
+                'company_id' => $companyId,
+                'tokens_used' => $tokensUsed,
+                'operation_type' => $operationType,
+                'job_application_id' => $jobApplicationId,
+            ]);
+            
+            // Get or create active allocation
+            $allocation = $this->getOrCreateAllocation($companyId);
+            
+            Log::info('Allocation ready', [
+                'allocation_id' => $allocation->id,
+                'remaining_tokens' => $allocation->remaining_tokens,
+                'allocated_tokens' => $allocation->allocated_tokens,
+                'is_tracking_only' => $allocation->status === 'tracking_only',
+            ]);
 
             // Get cost per token from allocation's purchase or default
             $costPerToken = $allocation->tokenPurchase?->cost_per_token ?? config('services.openai.cost_per_token', 0.00003);
             $totalCost = $tokensUsed * $costPerToken;
 
-            // Deduct from allocation
-            if (!$allocation->deductTokens($tokensUsed)) {
-                return false;
+            // Try to deduct from allocation (if it's not tracking-only)
+            $deducted = false;
+            if ($allocation->status !== 'tracking_only') {
+                if ($allocation->remaining_tokens >= $tokensUsed) {
+                    $deducted = $allocation->deductTokens($tokensUsed);
+                    if ($deducted) {
+                        Log::info('Tokens deducted from allocation', [
+                            'allocation_id' => $allocation->id,
+                            'tokens_deducted' => $tokensUsed,
+                            'remaining' => $allocation->remaining_tokens,
+                        ]);
+                    } else {
+                        Log::warning('Failed to deduct tokens from allocation', [
+                            'allocation_id' => $allocation->id,
+                            'tokens_required' => $tokensUsed,
+                            'remaining' => $allocation->remaining_tokens,
+                        ]);
+                    }
+                } else {
+                    Log::warning('Insufficient tokens in allocation', [
+                        'allocation_id' => $allocation->id,
+                        'tokens_required' => $tokensUsed,
+                        'remaining' => $allocation->remaining_tokens,
+                    ]);
+                }
+            } else {
+                Log::info('Tracking-only allocation - usage will be logged but not deducted', [
+                    'allocation_id' => $allocation->id,
+                ]);
             }
 
-            // Log usage
+            // ALWAYS log usage (even if deduction failed - for billing purposes)
             $usageLog = TokenUsageLog::create([
                 'company_id' => $companyId,
                 'job_application_id' => $jobApplicationId,
@@ -109,18 +174,33 @@ class TokenService
                 'tokens_used' => $tokensUsed,
                 'input_tokens' => $metadata['input_tokens'] ?? 0,
                 'output_tokens' => $metadata['output_tokens'] ?? 0,
-                'model_used' => $metadata['model'] ?? 'gpt-4',
+                'model_used' => $metadata['model'] ?? 'gpt-4o-mini',
                 'cost_per_token' => $costPerToken,
                 'total_cost' => $totalCost,
-                'metadata' => $metadata,
+                'metadata' => array_merge($metadata, [
+                    'deducted_from_allocation' => $deducted,
+                    'allocation_status' => $allocation->status,
+                ]),
+            ]);
+
+            Log::info('Token usage logged successfully', [
+                'usage_log_id' => $usageLog->id,
+                'company_id' => $companyId,
+                'tokens_used' => $tokensUsed,
+                'operation_type' => $operationType,
+                'job_application_id' => $jobApplicationId,
+                'deducted' => $deducted,
             ]);
 
             // Update monthly summary
             $this->updateMonthlySummary($companyId, $operationType, $tokensUsed, $totalCost);
 
-            // Check if low on tokens and send alert
-            $this->checkLowTokenAlert($companyId, $allocation);
+            // Check if low on tokens and send alert (only if not tracking-only)
+            if ($allocation->status !== 'tracking_only') {
+                $this->checkLowTokenAlert($companyId, $allocation);
+            }
 
+            // Return true if usage was logged (always true now)
             return true;
         });
     }
@@ -272,6 +352,7 @@ class TokenService
                 'percentage_used' => 0,
                 'percentage_remaining' => 0,
                 'status' => 'no_allocation',
+                'expires_at' => null, // Include expires_at even when no allocation
             ];
         }
 

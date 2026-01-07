@@ -66,9 +66,12 @@ class AISievingService
         // Determine decision
         $decision = $this->makeDecision($ruleScore, $confidence, $criteria, $aiAnalysis);
         
+        // Check CV quality and compare with form data
+        $cvValidation = $this->validateCv($application);
+        
         // Extract strengths and weaknesses (enhanced with AI if available)
         $strengths = $this->extractStrengths($application, $criteria, $aiAnalysis);
-        $weaknesses = $this->extractWeaknesses($application, $criteria, $aiAnalysis);
+        $weaknesses = $this->extractWeaknesses($application, $criteria, $aiAnalysis, $cvValidation);
         
         // Generate reasoning (enhanced with AI insights)
         $reasoning = $this->generateReasoning($application, $ruleScore, $decision, $strengths, $weaknesses, $aiAnalysis);
@@ -114,6 +117,9 @@ class AISievingService
         $criteriaData = $criteria->criteria_json;
         $totalScore = 0;
         
+        // CV validation scoring (heavy penalty for empty/mismatched CV)
+        $totalScore += $this->scoreCvQuality($application, $criteriaData['cv_quality'] ?? []);
+        
         // Education scoring
         $totalScore += $this->scoreEducation($application, $criteriaData['education'] ?? []);
         
@@ -131,6 +137,46 @@ class AISievingService
         
         // Ensure score is between 0-100
         return max(0, min(100, $totalScore));
+    }
+    
+    /**
+     * Score CV quality (0-20 points, but can be negative)
+     */
+    private function scoreCvQuality(JobApplication $application, array $criteria): int
+    {
+        $score = 0;
+        $cvValidation = $this->validateCv($application);
+        
+        // Heavy penalty for empty CV
+        if ($cvValidation['cv_empty']) {
+            $score -= 50; // Major penalty
+            return $score;
+        }
+        
+        // Check if CV exists
+        $cvParsedData = $application->cvParsedData;
+        if (!$cvParsedData || empty($cvParsedData->raw_text)) {
+            $score -= 40; // No CV uploaded
+            return $score;
+        }
+        
+        // Check CV length (minimum meaningful content)
+        $cvLength = strlen(trim($cvParsedData->raw_text));
+        if ($cvLength < 200) {
+            $score -= 30; // CV too short
+        } elseif ($cvLength < 500) {
+            $score -= 10; // CV minimal
+        } else {
+            $score += 10; // CV has reasonable content
+        }
+        
+        // Penalty for CV mismatches
+        if (!empty($cvValidation['mismatches'])) {
+            $mismatchPenalty = count($cvValidation['mismatches']) * 10;
+            $score -= $mismatchPenalty; // -10 per mismatch
+        }
+        
+        return $score;
     }
 
     /**
@@ -245,34 +291,58 @@ class AISievingService
         
         // Why interested
         $whyInterested = $application->why_interested ?? '';
-        if (strlen($whyInterested) >= $minLength) {
-            $score += 8;
-            // Check for quality indicators
-            foreach ($criteria['quality_indicators'] ?? [] as $indicator) {
-                if (stripos($whyInterested, $indicator) !== false) {
-                    $score += 2;
+        if (!empty($whyInterested)) {
+            // Heavy penalty for gibberish
+            if (!$this->isMeaningfulText($whyInterested)) {
+                $score -= 15; // Heavy penalty
+            } elseif (strlen($whyInterested) >= $minLength) {
+                $score += 8;
+                // Check for quality indicators
+                foreach ($criteria['quality_indicators'] ?? [] as $indicator) {
+                    if (stripos($whyInterested, $indicator) !== false) {
+                        $score += 2;
+                    }
                 }
+            } elseif (strlen($whyInterested) >= 30) {
+                $score += 4; // Partial credit for shorter but meaningful responses
             }
         }
         
         // Why good fit
         $whyGoodFit = $application->why_good_fit ?? '';
-        if (strlen($whyGoodFit) >= $minLength) {
-            $score += 8;
-            foreach ($criteria['quality_indicators'] ?? [] as $indicator) {
-                if (stripos($whyGoodFit, $indicator) !== false) {
-                    $score += 2;
+        if (!empty($whyGoodFit)) {
+            // Heavy penalty for gibberish
+            if (!$this->isMeaningfulText($whyGoodFit)) {
+                $score -= 15; // Heavy penalty
+            } elseif (strlen($whyGoodFit) >= $minLength) {
+                $score += 8;
+                foreach ($criteria['quality_indicators'] ?? [] as $indicator) {
+                    if (stripos($whyGoodFit, $indicator) !== false) {
+                        $score += 2;
+                    }
                 }
+            } elseif (strlen($whyGoodFit) >= 30) {
+                $score += 4; // Partial credit
             }
         }
         
         // Career goals
         $careerGoals = $application->career_goals ?? '';
-        if (strlen($careerGoals) >= $minLength) {
-            $score += 4;
+        if (!empty($careerGoals)) {
+            if (!$this->isMeaningfulText($careerGoals)) {
+                $score -= 5; // Penalty for gibberish
+            } elseif (strlen($careerGoals) >= $minLength) {
+                $score += 4;
+            }
         }
         
-        return min($criteria['max_points'] ?? 20, $score);
+        // Skills - check if meaningful
+        $skills = $application->relevant_skills ?? '';
+        if (!empty($skills) && !$this->isMeaningfulText($skills)) {
+            $score -= 10; // Heavy penalty for gibberish skills
+        }
+        
+        return max(-20, min($criteria['max_points'] ?? 20, $score)); // Allow negative scores
     }
 
     /**
@@ -369,32 +439,100 @@ class AISievingService
     {
         $strengths = [];
         
-        // Add AI-identified strengths if available
+        // Add AI-identified strengths if available (only if meaningful)
         if ($aiAnalysis && !empty($aiAnalysis['matching_points'])) {
-            $strengths = array_merge($strengths, (array) $aiAnalysis['matching_points']);
+            foreach ((array) $aiAnalysis['matching_points'] as $point) {
+                // Only add if it's meaningful (not gibberish)
+                if ($this->isMeaningfulText($point)) {
+                    $strengths[] = $point;
+                }
+            }
         }
         
-        // Add rule-based strengths
-        if (!empty($application->education_level)) {
+        // Add rule-based strengths (only if meaningful)
+        if (!empty($application->education_level) && $this->isMeaningfulText($application->education_level)) {
             $strengths[] = "Education: {$application->education_level}";
         }
         
-        if (!empty($application->current_job_title)) {
+        if (!empty($application->current_job_title) && $this->isMeaningfulText($application->current_job_title)) {
             $strengths[] = "Current Position: {$application->current_job_title}";
         }
         
-        if (!empty($application->relevant_skills)) {
+        if (!empty($application->relevant_skills) && $this->isMeaningfulText($application->relevant_skills)) {
             $strengths[] = "Relevant Skills: " . substr($application->relevant_skills, 0, 100);
         }
         
         // Remove duplicates
         return array_unique($strengths);
     }
+    
+    /**
+     * Check if text is meaningful (not gibberish or placeholder)
+     */
+    private function isMeaningfulText(?string $text): bool
+    {
+        if (empty($text) || strlen(trim($text)) < 3) {
+            return false;
+        }
+        
+        $text = trim(strtolower($text));
+        
+        // Check for common gibberish patterns
+        $gibberishPatterns = [
+            // Random character sequences
+            '/^[a-z]{3,}([a-z]{2,}){3,}$/i', // Repeated short patterns like "ghcgfhcfg"
+            // Too many consonants in a row (likely gibberish)
+            '/[bcdfghjklmnpqrstvwxyz]{5,}/i',
+            // Random alphanumeric
+            '/^[a-z0-9]{3,}$/i', // If it's just alphanumeric without spaces and too short
+        ];
+        
+        foreach ($gibberishPatterns as $pattern) {
+            if (preg_match($pattern, $text) && strlen($text) < 20) {
+                // Check if it has any real words
+                $words = explode(' ', $text);
+                $realWords = 0;
+                foreach ($words as $word) {
+                    // A word is "real" if it has vowels and reasonable length
+                    if (preg_match('/[aeiou]/i', $word) && strlen($word) >= 3) {
+                        $realWords++;
+                    }
+                }
+                // If less than 30% are real words, it's likely gibberish
+                if (count($words) > 0 && ($realWords / count($words)) < 0.3) {
+                    return false;
+                }
+            }
+        }
+        
+        // Check for placeholder text
+        $placeholders = ['test', 'sample', 'n/a', 'na', 'tbd', 'placeholder', 'example', 'lorem'];
+        foreach ($placeholders as $placeholder) {
+            if ($text === $placeholder || strpos($text, $placeholder) === 0) {
+                return false;
+            }
+        }
+        
+        // Must have at least one vowel (basic check)
+        if (!preg_match('/[aeiou]/i', $text)) {
+            return false;
+        }
+        
+        // If it's very short and has no spaces, likely not meaningful
+        if (strlen($text) < 10 && strpos($text, ' ') === false) {
+            // But allow single meaningful words
+            if (!preg_match('/^[a-z]{3,}$/i', $text)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
 
     /**
      * Extract weaknesses
      */
-    private function extractWeaknesses(JobApplication $application, JobSievingCriteria $criteria, ?array $aiAnalysis = null): array
+    private function extractWeaknesses(JobApplication $application, JobSievingCriteria $criteria, ?array $aiAnalysis = null, ?array $cvValidation = null): array
     {
         $weaknesses = [];
         
@@ -403,9 +541,41 @@ class AISievingService
             $weaknesses = array_merge($weaknesses, (array) $aiAnalysis['missing_requirements']);
         }
         
+        // Add CV validation weaknesses
+        if ($cvValidation) {
+            if ($cvValidation['cv_empty']) {
+                $weaknesses[] = "CV is empty or contains minimal content (less than 100 characters)";
+            }
+            
+            if (!empty($cvValidation['mismatches'])) {
+                foreach ($cvValidation['mismatches'] as $mismatch) {
+                    $weaknesses[] = $mismatch;
+                }
+            }
+        }
+        
+        // Check for gibberish/meaningless responses
+        if (!empty($application->why_interested) && !$this->isMeaningfulText($application->why_interested)) {
+            $weaknesses[] = "Why interested response appears to be gibberish or meaningless";
+        }
+        
+        if (!empty($application->why_good_fit) && !$this->isMeaningfulText($application->why_good_fit)) {
+            $weaknesses[] = "Why good fit response appears to be gibberish or meaningless";
+        }
+        
+        if (!empty($application->relevant_skills) && !$this->isMeaningfulText($application->relevant_skills)) {
+            $weaknesses[] = "Skills listed appear to be gibberish or meaningless";
+        }
+        
+        if (!empty($application->current_job_title) && !$this->isMeaningfulText($application->current_job_title)) {
+            $weaknesses[] = "Current position appears to be gibberish or meaningless";
+        }
+        
         // Add rule-based weaknesses
         if (empty($application->education_level)) {
             $weaknesses[] = "Education level not specified";
+        } elseif (!$this->isMeaningfulText($application->education_level)) {
+            $weaknesses[] = "Education level appears to be invalid or meaningless";
         }
         
         if (empty($application->work_experience) && empty($application->current_job_title)) {
@@ -414,10 +584,29 @@ class AISievingService
         
         if (strlen($application->why_interested ?? '') < 50) {
             $weaknesses[] = "Why interested response is too brief";
+        } elseif (!empty($application->why_interested) && !$this->isMeaningfulText($application->why_interested)) {
+            $weaknesses[] = "Why interested response lacks substance or appears meaningless";
         }
         
         // Remove duplicates
         return array_unique($weaknesses);
+    }
+    
+    /**
+     * Validate CV and compare with application form data
+     */
+    private function validateCv(JobApplication $application): array
+    {
+        $aiAnalysisService = new AIAnalysisService();
+        return $aiAnalysisService->compareCvWithApplication($application);
+    }
+    
+    /**
+     * Public method to validate CV (for debugging/logging)
+     */
+    public function validateCvPublic(JobApplication $application): array
+    {
+        return $this->validateCv($application);
     }
 
     /**

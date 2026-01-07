@@ -11,11 +11,27 @@
         </div>
     @endif
 
+    @if (session('warning'))
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {{ session('warning') }}
+        </div>
+    @endif
+
     @if (session('error'))
         <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
             {{ session('error') }}
         </div>
     @endif
+
+    <div class="mb-4 flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900">Token Management</h2>
+            <p class="text-sm text-slate-600 mt-1">Company: {{ $company->name }}</p>
+        </div>
+        <button onclick="window.location.reload()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+            🔄 Refresh
+        </button>
+    </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <!-- Token Balance Card -->
@@ -28,22 +44,36 @@
             </div>
             <div class="space-y-3">
                 <div>
-                    <p class="text-3xl font-bold text-slate-900">{{ number_format($balance['remaining']) }}</p>
+                    <p class="text-3xl font-bold {{ ($balance['remaining'] ?? 0) > 0 ? 'text-slate-900' : 'text-red-600' }}">
+                        {{ number_format($balance['remaining'] ?? 0) }}
+                    </p>
                     <p class="text-sm text-slate-500">Remaining Tokens</p>
+                    @if(($balance['remaining'] ?? 0) == 0)
+                        <p class="text-xs text-red-600 font-medium mt-1">⚠️ No tokens available</p>
+                    @elseif(($balance['percentage_remaining'] ?? 100) < 20)
+                        <p class="text-xs text-amber-600 font-medium mt-1">⚠️ Low balance</p>
+                    @endif
                 </div>
                 <div class="pt-3 border-t border-slate-200">
                     <div class="flex justify-between text-sm mb-2">
                         <span class="text-slate-600">Total Allocated</span>
-                        <span class="font-semibold text-slate-900">{{ number_format($balance['total_allocated']) }}</span>
+                        <span class="font-semibold text-slate-900">{{ number_format($balance['total_allocated'] ?? 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm mb-2">
                         <span class="text-slate-600">Used</span>
-                        <span class="font-semibold text-slate-900">{{ number_format($balance['used']) }}</span>
+                        <span class="font-semibold text-slate-900">{{ number_format($balance['used'] ?? 0) }}</span>
                     </div>
+                    @if($balance['total_allocated'] > 0)
                     <div class="w-full bg-slate-200 rounded-full h-2 mt-3">
-                        <div class="bg-teal-600 h-2 rounded-full" style="width: {{ $balance['percentage_used'] }}%"></div>
+                        <div class="bg-teal-600 h-2 rounded-full transition-all" style="width: {{ min($balance['percentage_used'] ?? 0, 100) }}%"></div>
                     </div>
-                    <p class="text-xs text-slate-500 mt-2">{{ $balance['percentage_used'] }}% used, {{ $balance['percentage_remaining'] }}% remaining</p>
+                    <p class="text-xs text-slate-500 mt-2">{{ number_format($balance['percentage_used'] ?? 0, 1) }}% used, {{ number_format($balance['percentage_remaining'] ?? 0, 1) }}% remaining</p>
+                    @else
+                    <p class="text-xs text-amber-600 mt-2">No allocation found. Please allocate tokens.</p>
+                    @endif
+                    @if(!empty($balance['expires_at']))
+                        <p class="text-xs text-slate-500 mt-2">Expires: {{ \Carbon\Carbon::parse($balance['expires_at'])->format('M d, Y') }}</p>
+                    @endif
                 </div>
             </div>
         </div>
@@ -74,7 +104,7 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- Quick Actions & Suggested Plans -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wide">Quick Actions</h3>
@@ -82,16 +112,57 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 </svg>
             </div>
-            <div class="space-y-2">
-                <a href="{{ route('admin.tokens.usage') }}" class="block w-full px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition">
-                    View Usage Details
-                </a>
-                <a href="{{ route('admin.tokens.purchases') }}" class="block w-full px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
-                    Manage Purchases
-                </a>
-                <button onclick="openAllocateModal()" class="block w-full px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition">
-                    Allocate Tokens
-                </button>
+            <div class="space-y-3">
+                <div class="space-y-2">
+                    <a href="{{ route('admin.tokens.usage') }}" class="block w-full px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition">
+                        View Usage Details
+                    </a>
+                    <a href="{{ route('admin.tokens.purchases') }}" class="block w-full px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition">
+                        Manage Purchases
+                    </a>
+                    <button onclick="openAllocateModal()" class="block w-full px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition">
+                        Allocate Tokens
+                    </button>
+                </div>
+
+                @if(!empty($plans))
+                    <div class="pt-3 border-t border-slate-200">
+                        <p class="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Suggested Reseller Plans</p>
+                        <div class="space-y-1">
+                            <form method="POST" action="{{ route('admin.tokens.apply-plan') }}">
+                                @csrf
+                                <input type="hidden" name="company_id" value="{{ $company->id }}">
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex-1">
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">Select Plan</label>
+                                            <select name="plan_code" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-xs">
+                                                @foreach($plans as $code => $plan)
+                                                    <option value="{{ $code }}" {{ $company->subscription_plan === $code ? 'selected' : '' }}>
+                                                        {{ $plan['name'] }} ({{ number_format($plan['monthly_tokens']) }} tokens / ${{ number_format($plan['monthly_price_usd'], 2) }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <label class="inline-flex items-center text-xs text-slate-600">
+                                            <input type="checkbox" name="allocate_now" value="1" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 mr-1.5">
+                                            Allocate this month's tokens now
+                                        </label>
+                                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-600 text-white hover:bg-teal-700">
+                                            Apply Plan
+                                        </button>
+                                    </div>
+                                    <p class="text-[11px] text-slate-400">
+                                        Current plan: <span class="font-semibold text-slate-700">{{ ucfirst($company->subscription_plan ?? 'starter') }}</span>,
+                                        monthly limit: <span class="font-semibold text-slate-700">{{ number_format($company->token_limit_per_month ?? 0) }}</span> tokens.
+                                    </p>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -126,23 +197,49 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Date</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Operation</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Tokens</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Application</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Input/Output</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Total Tokens</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Cost</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Model</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
                     @forelse($recentLogs as $log)
-                        <tr>
-                            <td class="px-4 py-3 text-sm text-slate-900">{{ $log->created_at->format('M d, Y H:i') }}</td>
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ ucfirst(str_replace('_', ' ', $log->operation_type)) }}</td>
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 text-sm text-slate-900">
+                                <div>{{ $log->created_at->format('M d, Y') }}</div>
+                                <div class="text-xs text-slate-500">{{ $log->created_at->format('H:i:s') }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                                    {{ ucfirst(str_replace('_', ' ', $log->operation_type)) }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-slate-600">
+                                @if($log->jobApplication)
+                                    <a href="{{ route('admin.job-applications.show', $log->jobApplication) }}" class="text-teal-600 hover:text-teal-700 font-medium">
+                                        {{ $log->jobApplication->name ?? 'Application #' . $log->job_application_id }}
+                                    </a>
+                                @else
+                                    <span class="text-slate-400 italic">N/A</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-sm text-slate-600">
+                                <div class="text-xs">
+                                    <span class="text-slate-500">In:</span> {{ number_format($log->input_tokens) }}
+                                </div>
+                                <div class="text-xs">
+                                    <span class="text-slate-500">Out:</span> {{ number_format($log->output_tokens) }}
+                                </div>
+                            </td>
                             <td class="px-4 py-3 text-sm font-medium text-slate-900">{{ number_format($log->tokens_used) }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">${{ number_format($log->total_cost, 4) }}</td>
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ $log->model_used }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">{{ $log->model_used ?? 'N/A' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No usage logs yet.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">No usage logs yet.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -157,29 +254,54 @@
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Allocated Date</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Allocated</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Used</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Remaining</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Purchase</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Status</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">Expires</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-slate-200">
                     @forelse($allocations as $allocation)
-                        <tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 text-sm text-slate-600">
+                                {{ $allocation->allocated_at->format('M d, Y') }}
+                            </td>
                             <td class="px-4 py-3 text-sm font-medium text-slate-900">{{ number_format($allocation->allocated_tokens) }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ number_format($allocation->used_tokens) }}</td>
                             <td class="px-4 py-3 text-sm font-semibold text-teal-600">{{ number_format($allocation->remaining_tokens) }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">
+                                @if($allocation->tokenPurchase)
+                                    <span class="text-xs">Purchase #{{ $allocation->tokenPurchase->id }}</span>
+                                @else
+                                    <span class="text-slate-400 italic">Manual</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-sm">
                                 <span class="px-2 py-1 rounded-full text-xs font-medium {{ $allocation->status === 'active' ? 'bg-green-100 text-green-800' : ($allocation->status === 'exhausted' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800') }}">
                                     {{ ucfirst($allocation->status) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ $allocation->expires_at ? $allocation->expires_at->format('M d, Y') : 'Never' }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">
+                                @if($allocation->expires_at)
+                                    @if($allocation->expires_at->isPast())
+                                        <span class="text-red-600">Expired</span>
+                                    @else
+                                        {{ $allocation->expires_at->format('M d, Y') }}
+                                    @endif
+                                @else
+                                    <span class="text-slate-400">Never</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-500">No allocations yet.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-500">
+                                <p>No allocations yet.</p>
+                                <p class="text-xs text-slate-400 mt-2">Click "Allocate Tokens" to create your first allocation.</p>
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
