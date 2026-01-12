@@ -46,7 +46,8 @@ class ContactMessageController extends Controller
 
         $messages = $query->orderByDesc('created_at')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.contact-messages.index'));
 
         $statusCounts = [
             'new' => ContactMessage::where('status', 'new')->count(),

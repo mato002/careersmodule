@@ -1,4 +1,13 @@
-@extends('layouts.website')
+@php
+    $layout = $layout ?? 'website';
+    $layoutMap = [
+        'admin' => 'layouts.admin',
+        'candidate' => 'layouts.candidate',
+        'website' => 'layouts.website',
+    ];
+    $selectedLayout = $layoutMap[$layout] ?? 'layouts.website';
+@endphp
+@extends($selectedLayout)
 
 @section('title', 'Page Not Found - Fortress Lenders Ltd')
 @section('meta_description', 'The page you are looking for could not be found. Visit Fortress Lenders home page, apply for a loan, or contact our team for assistance.')
@@ -19,19 +28,47 @@
                 </p>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
-                    <a href="{{ route('careers.index') }}"
-                       class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white text-teal-900 font-semibold text-sm sm:text-base shadow-md hover:bg-teal-50 transition-colors">
-                        Home
-                    </a>
-                    <a href="{{ route('careers.index') }}"
-                       class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
-                        View Careers
-                    </a>
-                    @if(Route::has('contact'))
-                    <a href="{{ route('contact') }}"
-                       class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white/10 border border-white/20 text-white font-semibold text-sm sm:text-base hover:bg-white/15 transition-colors">
-                        Contact Us
-                    </a>
+                    @if($layout === 'admin')
+                        <a href="{{ route('admin.dashboard') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white text-teal-900 font-semibold text-sm sm:text-base shadow-md hover:bg-teal-50 transition-colors">
+                            Dashboard
+                        </a>
+                        <a href="{{ route('admin.job-applications.index') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
+                            Job Applications
+                        </a>
+                        <button onclick="window.history.back()"
+                                class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white/10 border border-white/20 text-white font-semibold text-sm sm:text-base hover:bg-white/15 transition-colors">
+                            Go Back
+                        </button>
+                    @elseif($layout === 'candidate')
+                        <a href="{{ route('candidate.dashboard') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white text-teal-900 font-semibold text-sm sm:text-base shadow-md hover:bg-teal-50 transition-colors">
+                            My Dashboard
+                        </a>
+                        <a href="{{ route('careers.index') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
+                            View Careers
+                        </a>
+                        <button onclick="window.history.back()"
+                                class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white/10 border border-white/20 text-white font-semibold text-sm sm:text-base hover:bg-white/15 transition-colors">
+                            Go Back
+                        </button>
+                    @else
+                        <a href="{{ route('careers.index') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white text-teal-900 font-semibold text-sm sm:text-base shadow-md hover:bg-teal-50 transition-colors">
+                            Home
+                        </a>
+                        <a href="{{ route('careers.index') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-amber-500 text-white font-semibold text-sm sm:text-base shadow-md hover:bg-amber-600 transition-colors">
+                            View Careers
+                        </a>
+                        @if(Route::has('contact'))
+                        <a href="{{ route('contact') }}"
+                           class="px-4 py-3 sm:px-5 sm:py-4 rounded-xl bg-white/10 border border-white/20 text-white font-semibold text-sm sm:text-base hover:bg-white/15 transition-colors">
+                            Contact Us
+                        </a>
+                        @endif
                     @endif
                 </div>
 

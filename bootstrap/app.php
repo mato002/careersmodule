@@ -27,8 +27,35 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Helper function to determine layout based on request context
+        $getLayout = function ($request) {
+            $path = $request->path();
+            
+            // Admin routes
+            if (str_starts_with($path, 'admin')) {
+                return 'admin';
+            }
+            
+            // Candidate routes
+            if (str_starts_with($path, 'candidate')) {
+                return 'candidate';
+            }
+            
+            // Check if user is authenticated as admin/candidate
+            if ($request->user() && !$request->user()->isClient()) {
+                return 'admin';
+            }
+            
+            if ($request->user('candidate')) {
+                return 'candidate';
+            }
+            
+            // Default to website layout
+            return 'website';
+        };
+
         // Custom error page rendering - only show custom 404 if not in debug mode
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) use ($getLayout) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Resource not found.'], 404);
             }
@@ -36,10 +63,11 @@ return Application::configure(basePath: dirname(__DIR__))
             if (config('app.debug')) {
                 return null; // Let Laravel handle it with debug info
             }
-            return response()->view('errors.404', [], 404);
+            $layout = $getLayout($request);
+            return response()->view('errors.404', ['layout' => $layout], 404);
         });
 
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) use ($getLayout) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
             }
@@ -54,12 +82,13 @@ return Application::configure(basePath: dirname(__DIR__))
             ];
             
             if (isset($errorViews[$statusCode]) && view()->exists($errorViews[$statusCode])) {
-                return response()->view($errorViews[$statusCode], [], $statusCode);
+                $layout = $getLayout($request);
+                return response()->view($errorViews[$statusCode], ['layout' => $layout], $statusCode);
             }
         });
 
         // Handle general exceptions
-        $exceptions->render(function (\Throwable $e, $request) {
+        $exceptions->render(function (\Throwable $e, $request) use ($getLayout) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => config('app.debug') ? $e->getMessage() : 'Server Error'
@@ -71,7 +100,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null; // Let Laravel handle it with debug info
             }
             
-            return response()->view('errors.500', [], 500);
+            $layout = $getLayout($request);
+            return response()->view('errors.500', ['layout' => $layout], 500);
         });
 
         // Log all exceptions

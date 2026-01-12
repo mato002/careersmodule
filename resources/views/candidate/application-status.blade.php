@@ -193,6 +193,197 @@
         </div>
     </div>
 
+    <!-- Next Steps Section -->
+    @if($application->aptitude_test_passed)
+        @php
+            // Load interviews with eager loading
+            $application->load('interviews');
+            
+            // Check for upcoming interviews/assessments
+            $upcomingNextStage = $application->interviews
+                ->whereIn('interview_type', ['second', 'written_test', 'case_study'])
+                ->whereNull('result')
+                ->where('scheduled_at', '>', now())
+                ->sortBy('scheduled_at')
+                ->first();
+            
+            // Check for completed first interview
+            $completedFirstInterview = $application->interviews
+                ->whereIn('interview_type', ['first', 'online_interview'])
+                ->whereNotNull('result')
+                ->sortByDesc('scheduled_at')
+                ->first();
+            
+            // Check for completed next stage
+            $completedNextStage = $application->interviews
+                ->whereIn('interview_type', ['second', 'written_test', 'case_study'])
+                ->whereNotNull('result')
+                ->sortByDesc('scheduled_at')
+                ->first();
+        @endphp
+        
+        <div class="border-b border-gray-200 pb-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Next Steps</h2>
+            
+            @if($upcomingNextStage)
+                @php
+                    $stageLabels = [
+                        'second' => 'Second Interview',
+                        'written_test' => 'Written Test',
+                        'case_study' => 'Case Study Assessment'
+                    ];
+                    $stageLabel = $stageLabels[$upcomingNextStage->interview_type] ?? ucfirst(str_replace('_', ' ', $upcomingNextStage->interview_type));
+                @endphp
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-purple-900 mb-2">📅 {{ $stageLabel }} Scheduled</h3>
+                            <p class="text-sm text-purple-800 mb-3">
+                                Great progress! You've successfully passed both the aptitude test and first interview. 
+                                Your {{ strtolower($stageLabel) }} has been scheduled.
+                            </p>
+                            <div class="bg-white rounded-lg p-4 border border-purple-300">
+                                <p class="text-sm font-semibold text-purple-900 mb-2">📅 Schedule Details</p>
+                                <p class="text-sm text-purple-800">
+                                    <strong>Date & Time:</strong> {{ \Carbon\Carbon::parse($upcomingNextStage->scheduled_at)->format('l, F d, Y \a\t g:i A') }}
+                                </p>
+                                @if($upcomingNextStage->location)
+                                    <p class="text-sm text-purple-800 mt-2">
+                                        <strong>Location:</strong> {{ $upcomingNextStage->location }}
+                                    </p>
+                                @endif
+                                @if($upcomingNextStage->notes)
+                                    <p class="text-sm text-purple-800 mt-2">
+                                        <strong>Additional Information:</strong><br>
+                                        <span class="text-purple-700">{{ $upcomingNextStage->notes }}</span>
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @elseif($completedNextStage && $completedNextStage->result === 'pass')
+                @if($completedNextStage->interview_type === 'second')
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0">
+                                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-green-900 mb-2">🎉 Second Interview Passed</h3>
+                                <p class="text-sm text-green-800">
+                                    Outstanding! You've successfully passed the second interview. Our team is finalizing the hiring decision. 
+                                    <strong>You will be contacted shortly with the final outcome.</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0">
+                                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-green-900 mb-2">✅ Assessment Passed</h3>
+                                <p class="text-sm text-green-800">
+                                    Great work! You've successfully completed and passed the assessment. 
+                                    Our HR team is reviewing all your results and will contact you with next steps, which may include a final interview.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            @elseif(in_array($application->status, ['stage_2_passed', 'interview_passed']))
+                <div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-green-900 mb-3">🎉 Stage 2 Complete - What's Next?</h3>
+                            <p class="text-sm text-green-800 mb-4">
+                                Congratulations! You've successfully passed both the <strong>aptitude test</strong> and <strong>first interview</strong>. 
+                                You've reached Stage 2 of the hiring process.
+                            </p>
+                            
+                            <div class="bg-white rounded-lg p-4 border border-green-300 mb-4">
+                                <p class="text-sm font-semibold text-green-900 mb-3">📧 What Happens Next?</p>
+                                <ul class="text-sm text-green-800 space-y-2 list-disc list-inside">
+                                    <li>Our HR team is currently reviewing your complete application profile</li>
+                                    <li>You may be invited for one of the following:</li>
+                                    <ul class="list-disc list-inside ml-6 mt-2 space-y-1">
+                                        <li>A <strong>Second Interview</strong> (in-person or video call)</li>
+                                        <li>A <strong>Written Test</strong> or <strong>Case Study</strong> assessment</li>
+                                        <li>Final decision on your application</li>
+                                    </ul>
+                                    <li class="font-semibold mt-3">You will receive an email notification when the next step is scheduled</li>
+                                    <li>Please check your email regularly for updates</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <p class="text-sm font-semibold text-blue-900 mb-2">💡 Current Progress</p>
+                                <div class="flex flex-wrap gap-4 text-sm">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        <span class="text-green-800 font-medium">Aptitude Test: Passed ({{ $application->aptitude_test_score }}%)</span>
+                                    </div>
+                                    @if($completedFirstInterview && $completedFirstInterview->result === 'pass')
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            <span class="text-green-800 font-medium">First Interview: Passed</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @elseif(in_array($application->status, ['second_interview', 'written_test', 'case_study']))
+                @php
+                    $statusLabels = [
+                        'second_interview' => 'Second Interview',
+                        'written_test' => 'Written Test',
+                        'case_study' => 'Case Study'
+                    ];
+                    $currentStageLabel = $statusLabels[$application->status] ?? ucfirst(str_replace('_', ' ', $application->status));
+                @endphp
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-bold text-blue-900 mb-2">⏳ {{ $currentStageLabel }} - Awaiting Scheduling</h3>
+                            <p class="text-sm text-blue-800">
+                                Your application is at the {{ strtolower($currentStageLabel) }} stage. 
+                                Our HR team will contact you with scheduling details soon. Please check your email regularly for updates.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
     <!-- Actions -->
     <div class="pt-6 space-y-3">
         <div class="flex flex-wrap gap-3">
@@ -202,6 +393,11 @@
             @if(in_array($application->status, ['sieving_passed', 'pending_manual_review']) && !$application->aptitude_test_completed_at)
                 <a href="{{ route('aptitude-test.show', $application) }}" class="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm font-semibold">
                     Take Aptitude Test
+                </a>
+            @endif
+            @if($application->aptitude_test_passed && !$application->self_interview_completed_at && !in_array($application->status, ['stage_2_passed', 'hired', 'sieving_rejected']))
+                <a href="{{ route('self-interview.show', $application) }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold">
+                    Start Self Interview
                 </a>
             @endif
         </div>

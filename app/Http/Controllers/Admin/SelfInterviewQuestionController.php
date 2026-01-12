@@ -67,7 +67,8 @@ class SelfInterviewQuestionController extends Controller
             ->orderBy('job_post_id')
             ->orderBy('display_order')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.self-interview.index'));
 
         // Get job posts for filter (filtered by company for clients)
         $jobPostsQuery = JobPost::select('id', 'title');

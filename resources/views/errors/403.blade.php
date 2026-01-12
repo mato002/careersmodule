@@ -1,4 +1,13 @@
-@extends('layouts.website')
+@php
+    $layout = $layout ?? 'website';
+    $layoutMap = [
+        'admin' => 'layouts.admin',
+        'candidate' => 'layouts.candidate',
+        'website' => 'layouts.website',
+    ];
+    $selectedLayout = $layoutMap[$layout] ?? 'layouts.website';
+@endphp
+@extends($selectedLayout)
 
 @section('title', '403 - Forbidden')
 
@@ -33,10 +42,22 @@
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="{{ route('careers.index') }}" 
-               class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
-                Go to Homepage
-            </a>
+            @if($layout === 'admin')
+                <a href="{{ route('admin.dashboard') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Dashboard
+                </a>
+            @elseif($layout === 'candidate')
+                <a href="{{ route('candidate.dashboard') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Dashboard
+                </a>
+            @else
+                <a href="{{ route('careers.index') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Homepage
+                </a>
+            @endif
             <button onclick="window.history.back()" 
                     class="px-6 py-3 bg-white text-teal-800 border-2 border-teal-800 rounded-lg hover:bg-teal-50 transition-colors font-semibold shadow-md hover:shadow-lg">
                 Go Back

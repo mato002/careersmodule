@@ -1,4 +1,13 @@
-@extends('layouts.website')
+@php
+    $layout = $layout ?? 'website';
+    $layoutMap = [
+        'admin' => 'layouts.admin',
+        'candidate' => 'layouts.candidate',
+        'website' => 'layouts.website',
+    ];
+    $selectedLayout = $layoutMap[$layout] ?? 'layouts.website';
+@endphp
+@extends($selectedLayout)
 
 @section('title', '500 - Server Error')
 
@@ -33,10 +42,22 @@
 
         <!-- Action Buttons -->
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <a href="{{ route('careers.index') }}" 
-               class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
-                Go to Homepage
-            </a>
+            @if($layout === 'admin')
+                <a href="{{ route('admin.dashboard') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Dashboard
+                </a>
+            @elseif($layout === 'candidate')
+                <a href="{{ route('candidate.dashboard') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Dashboard
+                </a>
+            @else
+                <a href="{{ route('careers.index') }}" 
+                   class="px-6 py-3 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-semibold shadow-lg hover:shadow-xl transform hover:scale-105">
+                    Go to Homepage
+                </a>
+            @endif
             <button onclick="window.location.reload()" 
                     class="px-6 py-3 bg-white text-teal-800 border-2 border-teal-800 rounded-lg hover:bg-teal-50 transition-colors font-semibold shadow-md hover:shadow-lg">
                 Try Again
@@ -44,6 +65,7 @@
         </div>
 
         <!-- Contact Information -->
+        @if($layout !== 'admin' && $layout !== 'candidate')
         <div class="mt-12 pt-8 border-t border-gray-200">
             <p class="text-sm text-gray-500 mb-4">If the problem persists, please contact us:</p>
             <div class="flex flex-col sm:flex-row justify-center gap-4 text-sm">
@@ -58,6 +80,7 @@
                 </a>
             </div>
         </div>
+        @endif
     </div>
 </div>
 @endsection

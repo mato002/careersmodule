@@ -57,7 +57,8 @@ class JobPostController extends Controller
 
         $jobs = $query->orderBy('created_at', 'desc')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.jobs.index'));
 
         $departments = $this->applyCompanyFilter(JobPost::whereNotNull('department'))
             ->distinct()

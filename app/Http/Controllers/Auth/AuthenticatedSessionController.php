@@ -39,6 +39,18 @@ class AuthenticatedSessionController extends Controller
             // Check if candidate is logged in
             $candidate = Auth::guard('candidate')->user();
             if ($candidate) {
+                // Update last login
+                $candidate->update([
+                    'last_login_at' => now(),
+                    'last_login_ip' => $request->ip(),
+                ]);
+                
+                // Track candidate session
+                $this->sessionManagementService->trackCandidateSession($candidate, $request);
+                
+                // Log candidate login
+                $this->activityLogService->logLogin($candidate, true);
+                
                 // Link existing job applications by email for candidates
                 \App\Models\JobApplication::where('email', $candidate->email)
                     ->whereNull('candidate_id')
@@ -104,8 +116,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        // Remove session from tracking (only for employees)
-        if ($user && $sessionId) {
+        // Remove session from tracking and log logout
+        if ($candidate && $sessionId) {
+            $this->sessionManagementService->revokeCandidateSession($sessionId);
+            $this->activityLogService->logLogout($candidate);
+        } elseif ($user && $sessionId) {
             $this->sessionManagementService->revokeSession($sessionId);
             $this->activityLogService->logLogout($user);
         }

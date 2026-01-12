@@ -48,3 +48,4 @@ class FixJobPostSlugs extends Command
 
 
 
+

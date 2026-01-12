@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Candidate;
+use App\Models\CandidateSession;
 use App\Models\User;
 use App\Models\UserSession;
 use Illuminate\Http\Request;
@@ -223,6 +225,159 @@ class SessionManagementService
         $lifetime = config('session.lifetime', 120);
         
         return UserSession::where('last_activity', '<', now()->subMinutes($lifetime))
+            ->delete();
+    }
+
+    // ==================== CANDIDATE SESSION METHODS ====================
+
+    /**
+     * Track a new session for a candidate.
+     */
+    public function trackCandidateSession(Candidate $candidate, Request $request): CandidateSession
+    {
+        $sessionId = $request->session()->getId();
+        
+        // Parse user agent
+        $userAgent = $request->userAgent();
+        $deviceInfo = $this->parseUserAgent($userAgent);
+
+        // Check if session already exists
+        $existingSession = CandidateSession::where('session_id', $sessionId)
+            ->where('candidate_id', $candidate->id)
+            ->first();
+
+        if ($existingSession) {
+            // Update existing session
+            $existingSession->update([
+                'ip_address' => $request->ip(),
+                'user_agent' => $userAgent,
+                'device_type' => $deviceInfo['device_type'],
+                'browser' => $deviceInfo['browser'],
+                'platform' => $deviceInfo['platform'],
+                'last_activity' => now(),
+                'is_current' => true,
+            ]);
+
+            // Mark other sessions as not current
+            CandidateSession::where('candidate_id', $candidate->id)
+                ->where('id', '!=', $existingSession->id)
+                ->update(['is_current' => false]);
+
+            return $existingSession;
+        }
+
+        // Check session limit
+        $activeSessions = $this->getActiveCandidateSessionsCount($candidate);
+        
+        if ($activeSessions >= self::MAX_SESSIONS) {
+            // Remove oldest session
+            $oldestSession = CandidateSession::where('candidate_id', $candidate->id)
+                ->orderBy('last_activity', 'asc')
+                ->first();
+            
+            if ($oldestSession) {
+                $this->revokeCandidateSession($oldestSession->session_id);
+            }
+        }
+
+        // Create new session
+        $session = CandidateSession::create([
+            'candidate_id' => $candidate->id,
+            'session_id' => $sessionId,
+            'ip_address' => $request->ip(),
+            'user_agent' => $userAgent,
+            'device_type' => $deviceInfo['device_type'],
+            'browser' => $deviceInfo['browser'],
+            'platform' => $deviceInfo['platform'],
+            'last_activity' => now(),
+            'is_current' => true,
+        ]);
+
+        // Mark other sessions as not current
+        CandidateSession::where('candidate_id', $candidate->id)
+            ->where('id', '!=', $session->id)
+            ->update(['is_current' => false]);
+
+        return $session;
+    }
+
+    /**
+     * Update candidate session activity.
+     */
+    public function updateCandidateActivity(Candidate $candidate, string $sessionId): void
+    {
+        CandidateSession::where('candidate_id', $candidate->id)
+            ->where('session_id', $sessionId)
+            ->update([
+                'last_activity' => now(),
+                'is_current' => true,
+            ]);
+
+        // Mark other sessions as not current
+        CandidateSession::where('candidate_id', $candidate->id)
+            ->where('session_id', '!=', $sessionId)
+            ->update(['is_current' => false]);
+    }
+
+    /**
+     * Revoke a candidate session.
+     */
+    public function revokeCandidateSession(string $sessionId): bool
+    {
+        $session = CandidateSession::where('session_id', $sessionId)->first();
+        
+        if (!$session) {
+            return false;
+        }
+
+        // Delete the session from database
+        DB::table(config('session.table', 'sessions'))
+            ->where('id', $sessionId)
+            ->delete();
+
+        // Delete the session record
+        $session->delete();
+
+        return true;
+    }
+
+    /**
+     * Revoke all candidate sessions except the current one.
+     */
+    public function revokeOtherCandidateSessions(Candidate $candidate, string $currentSessionId): int
+    {
+        $sessions = CandidateSession::where('candidate_id', $candidate->id)
+            ->where('session_id', '!=', $currentSessionId)
+            ->get();
+
+        $count = 0;
+        foreach ($sessions as $session) {
+            if ($this->revokeCandidateSession($session->session_id)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Get active sessions count for a candidate.
+     */
+    public function getActiveCandidateSessionsCount(Candidate $candidate): int
+    {
+        return CandidateSession::where('candidate_id', $candidate->id)
+            ->where('last_activity', '>', now()->subMinutes(config('session.lifetime', 120)))
+            ->count();
+    }
+
+    /**
+     * Clean up expired candidate sessions.
+     */
+    public function cleanupExpiredCandidateSessions(): int
+    {
+        $lifetime = config('session.lifetime', 120);
+        
+        return CandidateSession::where('last_activity', '<', now()->subMinutes($lifetime))
             ->delete();
     }
 }

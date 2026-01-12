@@ -48,7 +48,8 @@ class CompanyController extends Controller
 
         $companies = $query->orderBy('created_at', 'desc')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.companies.index'));
 
         return view('admin.companies.index', compact(
             'companies',

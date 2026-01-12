@@ -105,7 +105,9 @@ class TokenController extends Controller
             ->whereBetween('created_at', [$startDate, now()])
             ->with('jobApplication')
             ->orderBy('created_at', 'desc')
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString()
+            ->setPath(route('admin.tokens.usage'));
 
         return view('admin.tokens.usage', compact('usageStats', 'logs', 'period'));
     }
@@ -117,7 +119,9 @@ class TokenController extends Controller
     {
         $purchases = TokenPurchase::with('allocations')
             ->orderBy('purchase_date', 'desc')
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString()
+            ->setPath(route('admin.tokens.purchases'));
 
         return view('admin.tokens.purchases', compact('purchases'));
     }

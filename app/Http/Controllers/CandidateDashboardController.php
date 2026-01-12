@@ -27,8 +27,10 @@ class CandidateDashboardController extends Controller
         $applications = JobApplication::where('candidate_id', $candidate->id)
             ->with([
                 'jobPost',
+                'jobPost.company',
                 'aiSievingDecision',
                 'aptitudeTestSession',
+                'selfInterviewSession',
                 'interviews' => function($query) {
                     $query->orderBy('scheduled_at', 'desc');
                 },
@@ -67,7 +69,16 @@ class CandidateDashboardController extends Controller
             abort(403, 'Unauthorized access to this application.');
         }
         
-        $application->load(['jobPost', 'aiSievingDecision', 'aptitudeTestSession']);
+        $application->load([
+            'jobPost',
+            'jobPost.company',
+            'aiSievingDecision',
+            'aptitudeTestSession',
+            'selfInterviewSession',
+            'interviews' => function($query) {
+                $query->orderBy('scheduled_at', 'desc');
+            }
+        ]);
         
         // Generate token for direct access
         $token = md5($application->email . $application->id . config('app.key'));

@@ -42,7 +42,8 @@ class UserController extends Controller
 
         $users = $query->orderBy('created_at', 'desc')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.users.index'));
 
         $roles = User::getRoles();
 

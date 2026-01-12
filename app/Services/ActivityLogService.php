@@ -19,9 +19,11 @@ class ActivityLogService
         ?array $metadata = null
     ): ActivityLog {
         $user = Auth::user();
+        $candidate = Auth::guard('candidate')->user();
 
         return ActivityLog::create([
             'user_id' => $user?->id,
+            'candidate_id' => $candidate?->id,
             'action' => $action,
             'model_type' => $model ? get_class($model) : null,
             'model_id' => $model?->id,
@@ -38,11 +40,15 @@ class ActivityLogService
      */
     public function logLogin($user, bool $success = true): void
     {
+        $isCandidate = $user instanceof \App\Models\Candidate;
+        
         ActivityLog::create([
-            'user_id' => $user?->id,
+            'user_id' => !$isCandidate ? $user?->id : null,
+            'candidate_id' => $isCandidate ? $user?->id : null,
             'action' => $success ? 'login' : 'login_failed',
             'description' => $success 
-                ? "User {$user->name} ({$user->email}) logged in successfully"
+                ? ($isCandidate ? "Candidate {$user->name} ({$user->email}) logged in successfully"
+                   : "User {$user->name} ({$user->email}) logged in successfully")
                 : "Failed login attempt for email: " . request()->email,
             'ip_address' => Request::ip(),
             'user_agent' => Request::userAgent(),
@@ -55,10 +61,39 @@ class ActivityLogService
      */
     public function logLogout($user): void
     {
+        $isCandidate = $user instanceof \App\Models\Candidate;
+        
         ActivityLog::create([
-            'user_id' => $user?->id,
+            'user_id' => !$isCandidate ? $user?->id : null,
+            'candidate_id' => $isCandidate ? $user?->id : null,
             'action' => 'logout',
-            'description' => "User {$user->name} ({$user->email}) logged out",
+            'description' => $isCandidate 
+                ? "Candidate {$user->name} ({$user->email}) logged out"
+                : "User {$user->name} ({$user->email}) logged out",
+            'ip_address' => Request::ip(),
+            'user_agent' => Request::userAgent(),
+            'route' => Request::route()?->getName() ?? Request::path(),
+        ]);
+    }
+
+    /**
+     * Log a candidate activity.
+     */
+    public function logCandidateActivity(
+        string $action,
+        string $description,
+        ?Model $model = null,
+        ?array $metadata = null
+    ): ActivityLog {
+        $candidate = Auth::guard('candidate')->user();
+
+        return ActivityLog::create([
+            'candidate_id' => $candidate?->id,
+            'action' => $action,
+            'model_type' => $model ? get_class($model) : null,
+            'model_id' => $model?->id,
+            'description' => $description,
+            'metadata' => $metadata,
             'ip_address' => Request::ip(),
             'user_agent' => Request::userAgent(),
             'route' => Request::route()?->getName() ?? Request::path(),

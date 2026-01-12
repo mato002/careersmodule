@@ -40,7 +40,8 @@ class TeamMemberController extends Controller
         $teamMembers = $query->orderBy('display_order')
             ->orderBy('name')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.team-members.index'));
 
         return view('admin.team-members.index', compact('teamMembers', 'totalTeamMembersCount', 'activeTeamMembersCount', 'hiddenTeamMembersCount', 'filteredTeamMembersCount'));
     }

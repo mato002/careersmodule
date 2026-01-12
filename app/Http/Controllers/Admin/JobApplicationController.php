@@ -98,7 +98,8 @@ class JobApplicationController extends Controller
 
         $applications = $query->orderBy('created_at', 'desc')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.job-applications.index'));
 
         // Get total counts for banner (with company filter)
         $totalApplications = $this->applyCompanyFilter(JobApplication::query())->count();

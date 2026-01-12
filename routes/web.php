@@ -67,9 +67,25 @@ Route::get('/dashboard', function () {
 })->middleware(['auth:web,candidate', 'verified'])->name('dashboard');
 
 // Candidate Routes (separate guard)
-Route::middleware(['auth:candidate'])->prefix('candidate')->name('candidate.')->group(function () {
+Route::middleware(['auth:candidate', \App\Http\Middleware\TrackCandidateSession::class])->prefix('candidate')->name('candidate.')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\CandidateDashboardController::class, 'index'])->name('dashboard');
     Route::get('/application/{application}', [\App\Http\Controllers\CandidateDashboardController::class, 'show'])->name('application.show');
+    
+    // Bio Data
+    Route::get('/biodata', [\App\Http\Controllers\Candidate\BiodataController::class, 'index'])->name('biodata.index');
+    Route::patch('/biodata', [\App\Http\Controllers\Candidate\BiodataController::class, 'update'])->name('biodata.update');
+    
+    // Documents
+    Route::get('/documents', [\App\Http\Controllers\Candidate\DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/documents/{document}/download-template', [\App\Http\Controllers\Candidate\DocumentController::class, 'downloadTemplate'])->name('documents.download-template');
+    Route::post('/documents/{document}/upload-filled', [\App\Http\Controllers\Candidate\DocumentController::class, 'uploadFilled'])->name('documents.upload-filled');
+    Route::post('/documents/upload', [\App\Http\Controllers\Candidate\DocumentController::class, 'upload'])->name('documents.upload');
+    Route::get('/documents/{document}/download', [\App\Http\Controllers\Candidate\DocumentController::class, 'download'])->name('documents.download');
+    
+    // Appraisals
+    Route::get('/appraisals', [\App\Http\Controllers\Candidate\AppraisalController::class, 'index'])->name('appraisals.index');
+    Route::get('/appraisals/{appraisal}', [\App\Http\Controllers\Candidate\AppraisalController::class, 'show'])->name('appraisals.show');
+    Route::post('/appraisals/{appraisal}/acknowledge', [\App\Http\Controllers\Candidate\AppraisalController::class, 'acknowledge'])->name('appraisals.acknowledge');
 });
 
 // Profile routes (accessible by both candidates and employees)
@@ -79,10 +95,13 @@ Route::middleware(['auth:web,candidate'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Employee-only routes (web guard only)
-Route::middleware(['auth:web'])->group(function () {
-    Route::post('/profile/sessions/{sessionId}/revoke', [ProfileController::class, 'revokeSession'])->name('profile.sessions.revoke');
-    Route::post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions'])->name('profile.sessions.revoke-others');
+// Session management routes (handles both candidates and employees)
+// The controller methods check which guard is authenticated and handle accordingly
+Route::middleware(['auth:web,candidate'])->group(function () {
+    Route::post('/profile/sessions/{sessionId}/revoke', [ProfileController::class, 'revokeSession'])
+        ->name('profile.revoke-candidate-session'); // Primary name for candidates
+    Route::post('/profile/sessions/revoke-others', [ProfileController::class, 'revokeOtherSessions'])
+        ->name('profile.revoke-other-candidate-sessions'); // Primary name for candidates
 });
 
 Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
@@ -133,6 +152,40 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             Route::resource('companies', \App\Http\Controllers\Admin\CompanyController::class);
             Route::post('companies/{company}/regenerate-api-key', [\App\Http\Controllers\Admin\CompanyController::class, 'regenerateApiKey'])->name('companies.regenerate-api-key');
             Route::post('companies/{company}/toggle-status', [\App\Http\Controllers\Admin\CompanyController::class, 'toggleStatus'])->name('companies.toggle-status');
+            
+            // Document Templates Management
+            Route::get('document-templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'index'])->name('document-templates.index');
+            Route::get('document-templates/create', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'create'])->name('document-templates.create');
+            Route::post('document-templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'store'])->name('document-templates.store');
+            Route::get('document-templates/{template}/download', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'download'])->name('document-templates.download');
+            Route::post('document-templates/{template}/toggle-status', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'toggleStatus'])->name('document-templates.toggle-status');
+            Route::delete('document-templates/{template}', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
+        });
+        
+        // Candidates Management - Accessible by Admin, HR Manager, and Clients
+        Route::middleware('role:admin,hr_manager,client')->group(function () {
+            Route::resource('candidates', \App\Http\Controllers\Admin\CandidateController::class)->only(['index', 'show', 'edit', 'update', 'destroy']);
+            
+            // Bio Data
+            Route::patch('candidates/{candidate}/biodata', [\App\Http\Controllers\Admin\CandidateController::class, 'updateBiodata'])->name('candidates.update-biodata');
+            
+            // Documents
+            Route::get('candidates/{candidate}/documents', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'index'])->name('candidates.documents');
+            Route::post('candidates/{candidate}/documents/assign-template', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'assignTemplate'])->name('candidates.documents.assign-template');
+            Route::post('candidates/documents/{document}/upload-filled-hr', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'uploadFilledByHr'])->name('candidates.documents.upload-filled-hr');
+            Route::patch('candidates/documents/{document}/update-status', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'updateStatus'])->name('candidates.documents.update-status');
+            Route::get('candidates/documents/{document}/download', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'download'])->name('candidates.documents.download');
+            Route::get('candidates/documents/{document}/download-template', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'downloadTemplate'])->name('candidates.documents.download-template');
+            Route::get('candidates/documents/{document}/download-filled', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'downloadFilled'])->name('candidates.documents.download-filled');
+            Route::delete('candidates/documents/{document}', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'destroy'])->name('candidates.documents.destroy');
+            
+            // Appraisals
+            Route::get('candidates/{candidate}/appraisals', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'index'])->name('candidates.appraisals');
+            Route::get('candidates/{candidate}/appraisals/create', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'create'])->name('candidates.appraisals.create');
+            Route::post('candidates/{candidate}/appraisals', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'store'])->name('candidates.appraisals.store');
+            Route::get('candidates/appraisals/{appraisal}/edit', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'edit'])->name('candidates.appraisals.edit');
+            Route::patch('candidates/appraisals/{appraisal}', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'update'])->name('candidates.appraisals.update');
+            Route::delete('candidates/appraisals/{appraisal}', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'destroy'])->name('candidates.appraisals.destroy');
         });
         
         // Careers Routes - Accessible by Admin, HR Manager, and Clients

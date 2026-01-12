@@ -47,7 +47,9 @@ class ActivityLogController extends Controller
             });
         }
 
-        $logs = $query->paginate(50);
+        $logs = $query->paginate(50)
+            ->withQueryString()
+            ->setPath(route('admin.activity-logs.index'));
 
         // Get unique actions for filter dropdown
         $actions = ActivityLog::distinct()->pluck('action')->sort()->values();

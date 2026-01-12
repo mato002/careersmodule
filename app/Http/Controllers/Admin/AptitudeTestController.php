@@ -117,7 +117,8 @@ class AptitudeTestController extends Controller
             ->orderBy('section')
             ->orderBy('display_order')
             ->paginate(20)
-            ->withQueryString();
+            ->withQueryString()
+            ->setPath(route('admin.aptitude-test.index'));
 
         // Get job posts for filter (filtered by company for clients)
         $jobPostsQuery = \App\Models\JobPost::select('id', 'title');
