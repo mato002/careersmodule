@@ -66,11 +66,14 @@ class AptitudeTestQuestion extends Model
     }
 
     /**
-     * Scope to filter by company
+     * Scope to filter by company (includes company-specific and global questions)
      */
     public function scopeForCompany($query, $companyId)
     {
-        return $query->where('company_id', $companyId);
+        return $query->where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+              ->orWhereNull('company_id'); // Include global questions
+        });
     }
 
     /**
@@ -81,26 +84,28 @@ class AptitudeTestQuestion extends Model
      */
     public static function getTestQuestions(?int $jobPostId = null, ?int $companyId = null): array
     {
-        $query = self::active();
+        // Build base query
+        $baseQuery = self::active();
         
-        // Filter by company if provided
+        // Filter by company if provided (includes company-specific and global questions)
         if ($companyId) {
-            $query->forCompany($companyId);
+            $baseQuery->forCompany($companyId);
         }
         
         if ($jobPostId) {
             // Get job-specific questions + global questions (where job_post_id is null)
-            $query->forJobPost($jobPostId);
+            $baseQuery->forJobPost($jobPostId);
         } else {
             // Only global questions
-            $query->whereNull('job_post_id');
+            $baseQuery->whereNull('job_post_id');
         }
 
+        // Build queries for each section (clone to avoid query builder state issues)
         $questions = [
-            'numerical' => (clone $query)->bySection('numerical')->inRandomOrder()->limit(10)->get(),
-            'logical' => (clone $query)->bySection('logical')->inRandomOrder()->limit(6)->get(),
-            'verbal' => (clone $query)->bySection('verbal')->inRandomOrder()->limit(5)->get(),
-            'scenario' => (clone $query)->bySection('scenario')->inRandomOrder()->limit(4)->get(),
+            'numerical' => (clone $baseQuery)->bySection('numerical')->inRandomOrder()->limit(10)->get(),
+            'logical' => (clone $baseQuery)->bySection('logical')->inRandomOrder()->limit(6)->get(),
+            'verbal' => (clone $baseQuery)->bySection('verbal')->inRandomOrder()->limit(5)->get(),
+            'scenario' => (clone $baseQuery)->bySection('scenario')->inRandomOrder()->limit(4)->get(),
         ];
 
         return $questions;

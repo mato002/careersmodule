@@ -1,5 +1,11 @@
 @php
-    $isCandidate = isset($isCandidateView) && $isCandidateView;
+    // Check if candidate is authenticated - use multiple fallbacks for reliability
+    $candidateGuard = \Illuminate\Support\Facades\Auth::guard('candidate');
+    $candidateUser = $candidateGuard->check() ? $candidateGuard->user() : null;
+    $isCandidateFromView = isset($isCandidateAuthenticated) && $isCandidateAuthenticated === true;
+    $isCandidateFromController = isset($isCandidateView) && $isCandidateView === true;
+    $isCandidateFromGuard = $candidateUser !== null;
+    $isCandidate = $isCandidateFromView || $isCandidateFromController || $isCandidateFromGuard;
     $layout = $isCandidate ? 'layouts.candidate' : 'layouts.website';
 @endphp
 

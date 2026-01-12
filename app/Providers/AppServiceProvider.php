@@ -71,5 +71,12 @@ class AppServiceProvider extends ServiceProvider
             $generalSettings = GeneralSetting::latest()->first();
             $view->with('generalSettings', $generalSettings);
         });
+
+        // Share candidate authentication status globally for aptitude-test and self-interview views
+        View::composer(['aptitude-test.take', 'aptitude-test.results', 'self-interview.take', 'self-interview.results'], function ($view): void {
+            $candidate = \Illuminate\Support\Facades\Auth::guard('candidate')->user();
+            $view->with('isCandidateAuthenticated', $candidate !== null);
+            $view->with('authenticatedCandidate', $candidate);
+        });
     }
 }

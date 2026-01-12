@@ -48,6 +48,7 @@ class AptitudeTestController extends Controller
 
         // Check if test session exists
         $session = $application->aptitudeTestSession;
+        $questionIds = [];
 
         if (!$session) {
             // Create new test session - use job-specific questions
@@ -59,6 +60,16 @@ class AptitudeTestController extends Controller
                 ->merge($questions['verbal'])
                 ->merge($questions['scenario'])
                 ->shuffle();
+
+            // Check if we have any questions
+            if ($allQuestions->isEmpty()) {
+                if ($isCandidateView) {
+                    return redirect()->route('candidate.dashboard')
+                        ->with('error', 'No aptitude test questions are available for this position. Please contact support.');
+                }
+                return redirect()->route('careers.index')
+                    ->with('error', 'No aptitude test questions are available for this position. Please contact support.');
+            }
 
             $session = AptitudeTestSession::create([
                 'job_application_id' => $application->id,
@@ -85,6 +96,16 @@ class AptitudeTestController extends Controller
                     ->merge($questions['scenario'])
                     ->shuffle();
                 
+                // Check if we have any questions after regeneration
+                if ($allQuestions->isEmpty()) {
+                    if ($isCandidateView) {
+                        return redirect()->route('candidate.dashboard')
+                            ->with('error', 'No aptitude test questions are available for this position. Please contact support.');
+                    }
+                    return redirect()->route('careers.index')
+                        ->with('error', 'No aptitude test questions are available for this position. Please contact support.');
+                }
+                
                 $questionIds = $allQuestions->pluck('id')->toArray();
                 session(['test_questions_' . $session->id => $questionIds]);
             }
@@ -92,6 +113,10 @@ class AptitudeTestController extends Controller
 
         // Ensure we have question IDs before querying
         if (empty($questionIds)) {
+            if ($isCandidateView) {
+                return redirect()->route('candidate.dashboard')
+                    ->with('error', 'Unable to load test questions. Please contact support.');
+            }
             return redirect()->route('careers.index')
                 ->with('error', 'Unable to load test questions. Please contact support.');
         }
