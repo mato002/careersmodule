@@ -596,7 +596,7 @@ class JobApplicationController extends Controller
                     'candidate_password_time_' . $candidate->id => now()->addMinutes(5)
                 ]);
                 
-                return back()->with('warning', 'Candidate account created, but failed to send email. Password: ' . $temporaryPassword . ' (Please send manually)')
+                return back()->with('warning', 'Candidate account created, but failed to send email. Password is available in session for 5 minutes (check candidate details). Please send credentials manually.')
                     ->with('candidate_password', $temporaryPassword)
                     ->with('candidate_email', $candidate->email);
             }
@@ -661,7 +661,7 @@ class JobApplicationController extends Controller
                 'candidate_password_time_' . $candidate->id => now()->addMinutes(5)
             ]);
             
-            return back()->with('warning', 'Failed to send email. New password: ' . $temporaryPassword . ' (Please send manually)')
+            return back()->with('warning', 'Failed to send email. New password is available in session for 5 minutes (check candidate details). Please send credentials manually.')
                 ->with('candidate_password', $temporaryPassword)
                 ->with('candidate_email', $candidate->email);
         }

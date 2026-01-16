@@ -12,7 +12,8 @@ class CareerController extends Controller
     public function index()
     {
         // Show all active jobs (both open and closed) - closed jobs serve as evidence of past postings
-        $jobs = JobPost::where('is_active', true)
+        $jobs = JobPost::withCount('applications')
+            ->where('is_active', true)
             ->orderBy('created_at', 'desc')
             ->paginate(12);
 
@@ -24,7 +25,9 @@ class CareerController extends Controller
     public function show($slug)
     {
         // Try to resolve the job post by slug - let Laravel show the actual error
-        $job = JobPost::where('slug', $slug)->firstOrFail();
+        $job = JobPost::withCount('applications')
+            ->where('slug', $slug)
+            ->firstOrFail();
         
         // Only hide inactive jobs, but allow viewing closed jobs (as evidence)
         if (!$job->is_active) {

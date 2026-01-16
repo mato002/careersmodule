@@ -7,6 +7,75 @@
     <meta name="keywords" content="careers, jobs, Kenya, recruitment, {{ $job->title }}, {{ $job->department }}">
     <title>{{ $job->title }} - Careers - {{ $generalSettings->company_name ?? 'Company' }}</title>
 
+    @php
+        // Prepare data for social sharing
+        $jobUrl = url(route('careers.show', $job->slug));
+        $jobTitle = $job->title;
+        $companyName = $generalSettings->company_name ?? 'Fortress Lenders';
+        $jobDescription = Str::limit(strip_tags($job->description), 200);
+        
+        // Build a rich description
+        $shareDescription = $jobDescription;
+        if ($job->location) {
+            $shareDescription .= ' | Location: ' . $job->location;
+        }
+        if ($job->department) {
+            $shareDescription .= ' | Department: ' . $job->department;
+        }
+        if ($job->employment_type) {
+            $shareDescription .= ' | Type: ' . ucfirst(str_replace('-', ' ', $job->employment_type));
+        }
+        
+        // Get logo URL for social sharing - ensure it's always an absolute URL
+        $logoUrl = null;
+        if ($generalSettings && $generalSettings->logo_path) {
+            // asset() generates absolute URLs based on APP_URL
+            // Ensure it's a fully qualified URL for social media crawlers
+            $logoUrl = asset('storage/' . $generalSettings->logo_path);
+            // Make sure it's absolute (not relative)
+            if (!filter_var($logoUrl, FILTER_VALIDATE_URL)) {
+                $logoUrl = url($logoUrl);
+            }
+        }
+        
+        // If no logo, we'll still show the meta tags but without image
+        // Social platforms will use their default behavior or no preview image
+    @endphp
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{{ $jobUrl }}">
+    <meta property="og:title" content="{{ $jobTitle }} - {{ $companyName }}">
+    <meta property="og:description" content="{{ $shareDescription }}">
+    @if($logoUrl)
+    <meta property="og:image" content="{{ $logoUrl }}">
+    <meta property="og:image:secure_url" content="{{ $logoUrl }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ $companyName }} Logo">
+    @endif
+    <meta property="og:site_name" content="{{ $companyName }}">
+    <meta property="og:locale" content="en_US">
+    <meta property="article:published_time" content="{{ $job->created_at->toIso8601String() }}">
+    @if($job->location)
+    <meta property="article:author" content="{{ $companyName }}">
+    @endif
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ $jobUrl }}">
+    <meta name="twitter:title" content="{{ $jobTitle }}">
+    <meta name="twitter:description" content="{{ $shareDescription }}">
+    @if($logoUrl)
+    <meta name="twitter:image" content="{{ $logoUrl }}">
+    <meta name="twitter:image:alt" content="{{ $companyName }} Logo">
+    @endif
+
+    <!-- Additional Meta Tags -->
+    <meta name="author" content="{{ $companyName }}">
+    <link rel="canonical" href="{{ $jobUrl }}">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
@@ -65,6 +134,11 @@
     <main class="pt-16 md:pt-20 overflow-x-hidden">
         @php 
         use Illuminate\Support\Str;
+        // Define status and deadline variables once at the top level for use throughout the template
+        $status = $job->application_status;
+        $statusClasses = $job->status_badge_classes;
+        $statusLabel = $job->status_label;
+        $deadlinePassed = $job->application_deadline && $job->application_deadline->isPast();
         @endphp
     <!-- Hero Section -->
     <section
@@ -76,11 +150,6 @@
             <div class="max-w-4xl mx-auto">
                 <div class="flex items-start justify-between gap-4 mb-4">
                     <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold flex-1">{{ $job->title }}</h1>
-                    @php
-                        $status = $job->application_status;
-                        $statusClasses = $job->status_badge_classes;
-                        $statusLabel = $job->status_label;
-                    @endphp
                     <span class="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold {{ $statusClasses }} whitespace-nowrap">
                         {{ $statusLabel }}
                     </span>
@@ -123,11 +192,6 @@
                         {{ session('error') }}
                     </div>
                 @endif
-
-                @php
-                    $status = $job->application_status;
-                    $deadlinePassed = $job->application_deadline && $job->application_deadline->isPast();
-                @endphp
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     <!-- Main Content -->

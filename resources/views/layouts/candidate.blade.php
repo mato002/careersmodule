@@ -18,11 +18,15 @@
                 <div class="w-10 h-10 rounded-xl bg-amber-400/20 text-lg font-bold flex items-center justify-center text-amber-300 sidebar-logo flex-shrink-0">F</div>
                 <div class="sidebar-text flex-1 min-w-0">
                     <p class="text-xs uppercase tracking-[0.4em] text-white/70">Candidate</p>
-                    <p class="text-lg font-bold truncate">Fortress Lenders</p>
+                    <p class="text-lg font-bold truncate">Candidate's Portal</p>
                 </div>
             </div>
             <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto overflow-x-hidden sidebar-nav min-h-0" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;">
-                <a href="{{ session('isAdminView') || (isset($isAdminView) && $isAdminView) ? '#' : route('candidate.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition border border-transparent {{ request()->routeIs('candidate.dashboard') || request()->routeIs('admin.job-applications.view-candidate-dashboard') ? 'bg-amber-400/20 border-amber-200/40 text-white shadow-inner' : 'text-white/75 hover:bg-white/10' }}" title="My Applications" @if(request()->routeIs('candidate.dashboard') || request()->routeIs('admin.job-applications.view-candidate-dashboard')) aria-current="page" @endif>
+                <a href="{{ session('isAdminView') || (isset($isAdminView) && $isAdminView) ? '#' : route('candidate.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition border border-transparent {{ request()->routeIs('candidate.dashboard') && !request()->routeIs('candidate.applications') ? 'bg-amber-400/20 border-amber-200/40 text-white shadow-inner' : 'text-white/75 hover:bg-white/10' }}" title="Dashboard" @if(request()->routeIs('candidate.dashboard') && !request()->routeIs('candidate.applications')) aria-current="page" @endif>
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+                <a href="{{ session('isAdminView') || (isset($isAdminView) && $isAdminView) ? '#' : route('candidate.applications') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition border border-transparent {{ request()->routeIs('candidate.applications') || request()->routeIs('candidate.application.*') || request()->routeIs('admin.job-applications.view-candidate-dashboard') ? 'bg-amber-400/20 border-amber-200/40 text-white shadow-inner' : 'text-white/75 hover:bg-white/10' }}" title="My Applications" @if(request()->routeIs('candidate.applications') || request()->routeIs('candidate.application.*') || request()->routeIs('admin.job-applications.view-candidate-dashboard')) aria-current="page" @endif>
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="sidebar-text">My Applications</span>
                 </a>
@@ -95,7 +99,11 @@
                         <button class="p-2 rounded-lg border border-white/20" onclick="toggleSidebar()">✕</button>
                     </div>
                     <nav class="px-4 py-6 space-y-2 overflow-y-auto overflow-x-hidden flex-1 min-h-0" style="scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;">
-                        <a href="{{ route('candidate.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold {{ request()->routeIs('candidate.dashboard') ? 'bg-amber-400/20 text-white border border-amber-200/40' : 'text-white/80 hover:bg-white/10' }}">
+                        <a href="{{ route('candidate.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold {{ request()->routeIs('candidate.dashboard') && !request()->routeIs('candidate.applications') ? 'bg-amber-400/20 text-white border border-amber-200/40' : 'text-white/80 hover:bg-white/10' }}">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{{ route('candidate.applications') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold {{ request()->routeIs('candidate.applications') || request()->routeIs('candidate.application.*') ? 'bg-amber-400/20 text-white border border-amber-200/40' : 'text-white/80 hover:bg-white/10' }}">
                             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             <span>My Applications</span>
                         </a>

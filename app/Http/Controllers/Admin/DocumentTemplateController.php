@@ -44,16 +44,35 @@ class DocumentTemplateController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // Additional file security: verify actual file type
+        $file = $request->file('template_file');
+        $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return redirect()->route('admin.document-templates.create')
+                ->withErrors(['template_file' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.']);
+        }
+
         // Check if template already exists for this type
         $existingTemplate = DocumentTemplate::where('document_type', $validated['document_type'])->first();
 
-        // Store template file
-        $path = $request->file('template_file')->store('document-templates', 'public');
+        try {
+            // Store template file
+            $path = $request->file('template_file')->store('document-templates', 'public');
+        } catch (\Exception $e) {
+            \Log::error('Failed to store document template: ' . $e->getMessage());
+            return redirect()->route('admin.document-templates.create')
+                ->withErrors(['template_file' => 'Failed to upload file. Please try again.']);
+        }
 
         if ($existingTemplate) {
             // Delete old template file
             if ($existingTemplate->template_path) {
-                Storage::disk('public')->delete($existingTemplate->template_path);
+                try {
+                    Storage::disk('public')->delete($existingTemplate->template_path);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to delete old template file: ' . $e->getMessage());
+                    // Continue even if deletion fails
+                }
             }
 
             // Update existing template
@@ -91,7 +110,16 @@ class DocumentTemplateController extends Controller
             abort(404, 'Template file not found.');
         }
 
-        return Storage::disk('public')->download($template->template_path);
+        if (!Storage::disk('public')->exists($template->template_path)) {
+            abort(404, 'Template file not found on disk.');
+        }
+
+        try {
+            return Storage::disk('public')->download($template->template_path);
+        } catch (\Exception $e) {
+            \Log::error('Failed to download template: ' . $e->getMessage());
+            abort(500, 'Failed to download template file.');
+        }
     }
 
     /**
@@ -115,7 +143,12 @@ class DocumentTemplateController extends Controller
     {
         // Delete file
         if ($template->template_path) {
-            Storage::disk('public')->delete($template->template_path);
+            try {
+                Storage::disk('public')->delete($template->template_path);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to delete template file: ' . $e->getMessage());
+                // Continue with deletion even if file deletion fails
+            }
         }
 
         $template->delete();

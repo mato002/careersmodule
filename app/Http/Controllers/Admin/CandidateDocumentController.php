@@ -71,6 +71,16 @@ class CandidateDocumentController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // Additional file security: verify actual file type if file is uploaded
+        if ($request->hasFile('template_file')) {
+            $file = $request->file('template_file');
+            $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+                return redirect()->route('admin.candidates.documents', $candidate)
+                    ->withErrors(['template_file' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.']);
+            }
+        }
+
         // Check if document already exists
         $existingDocument = CandidateDocument::where('candidate_id', $candidate->id)
             ->where('document_type', $validated['document_type'])
@@ -99,7 +109,13 @@ class CandidateDocumentController extends Controller
                     ->withErrors(['error' => 'Please upload a template file or select a global template.']);
             }
 
-            $templatePath = $request->file('template_file')->store('candidate-documents/templates', 'public');
+            try {
+                $templatePath = $request->file('template_file')->store('candidate-documents/templates', 'public');
+            } catch (\Exception $e) {
+                \Log::error('Failed to store template file: ' . $e->getMessage());
+                return redirect()->route('admin.candidates.documents', $candidate)
+                    ->withErrors(['error' => 'Failed to upload file. Please try again.']);
+            }
         }
 
         if ($existingDocument) {
@@ -161,8 +177,22 @@ class CandidateDocumentController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        // Additional file security: verify actual file type
+        $file = $request->file('filled_file');
+        $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return redirect()->route('admin.candidates.documents', $candidate)
+                ->withErrors(['filled_file' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.']);
+        }
+
         // Store filled file
-        $filledPath = $request->file('filled_file')->store('candidate-documents/filled-hr', 'public');
+        try {
+            $filledPath = $request->file('filled_file')->store('candidate-documents/filled-hr', 'public');
+        } catch (\Exception $e) {
+            \Log::error('Failed to store filled file: ' . $e->getMessage());
+            return redirect()->route('admin.candidates.documents', $candidate)
+                ->withErrors(['filled_file' => 'Failed to upload file. Please try again.']);
+        }
 
         // Delete old filled version if exists
         if ($document->filled_path) {

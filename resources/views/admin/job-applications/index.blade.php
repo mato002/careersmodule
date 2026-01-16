@@ -31,6 +31,12 @@
                 </svg>
                 <span class="hidden sm:inline">Change Status (<span id="selected-count-2">0</span>)</span>
             </button>
+            <button type="button" id="bulk-re-sieving-btn" class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 whitespace-nowrap">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span class="hidden sm:inline">Re-Sieving (<span id="selected-count-5">0</span>)</span>
+            </button>
             <button type="button" id="bulk-delete-btn" class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-white bg-red-600 hover:bg-red-700 whitespace-nowrap">
                 <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -71,6 +77,19 @@
                     </div>
                     <p class="text-xs text-emerald-700 mt-3">⚠️ Save these credentials now - they won't be shown again for security reasons.</p>
                 </div>
+            @endif
+        </div>
+    @endif
+
+    @if (session('warning'))
+        <div class="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+            {{ session('warning') }}
+            @if (session('errors') && is_array(session('errors')))
+                <ul class="list-disc list-inside mt-2">
+                    @foreach(session('errors') as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
             @endif
         </div>
     @endif
@@ -168,6 +187,10 @@
         @csrf
         <div id="bulk-status-inputs"></div>
         <input type="hidden" name="status" id="bulk-status-value">
+    </form>
+    <form id="bulk-re-sieving-form" method="POST" action="{{ route('admin.job-applications.bulk-re-sieving') }}" style="display: none;">
+        @csrf
+        <div id="bulk-re-sieving-inputs"></div>
     </form>
     <form id="bulk-delete-form" method="POST" action="{{ route('admin.job-applications.bulk-delete') }}" style="display: none;">
         @csrf
@@ -300,9 +323,10 @@
         const selectAllCheckbox = document.getElementById('select-all');
         const applicationCheckboxes = document.querySelectorAll('.application-checkbox');
         const bulkActionsContainer = document.getElementById('bulk-actions-container');
-        const selectedCountSpans = document.querySelectorAll('#selected-count, #selected-count-2, #selected-count-3');
+        const selectedCountSpans = document.querySelectorAll('#selected-count, #selected-count-2, #selected-count-3, #selected-count-5');
         const bulkEmailForm = document.getElementById('bulk-email-form');
         const bulkStatusForm = document.getElementById('bulk-status-form');
+        const bulkReSievingForm = document.getElementById('bulk-re-sieving-form');
         const bulkDeleteForm = document.getElementById('bulk-delete-form');
 
         function updateBulkActionsButton() {
@@ -310,9 +334,16 @@
             const selectedCountWithoutAccount = document.querySelectorAll('.application-checkbox:checked[data-has-account="false"]').length;
             if (selectedCount > 0) {
                 bulkActionsContainer.classList.remove('hidden');
-                selectedCountSpans.forEach(span => span.textContent = selectedCount);
-                const count4Span = document.getElementById('selected-count-4');
-                if (count4Span) count4Span.textContent = selectedCountWithoutAccount;
+                selectedCountSpans.forEach(span => {
+                    const spanId = span.id;
+                    if (spanId === 'selected-count-4') {
+                        span.textContent = selectedCountWithoutAccount;
+                    } else if (spanId === 'selected-count-5') {
+                        span.textContent = selectedCount;
+                    } else {
+                        span.textContent = selectedCount;
+                    }
+                });
             } else {
                 bulkActionsContainer.classList.add('hidden');
             }
@@ -487,6 +518,55 @@
                         document.getElementById('bulk-status-value').value = result.value;
                         
                         bulkStatusForm.submit();
+                    }
+                });
+            });
+        }
+
+        // Bulk re-sieving button
+        const bulkReSievingBtn = document.getElementById('bulk-re-sieving-btn');
+        if (bulkReSievingBtn && bulkReSievingForm) {
+            bulkReSievingBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const selectedIds = getSelectedApplicationIds();
+                const selectedCount = selectedIds.length;
+                
+                if (selectedCount === 0) {
+                    Swal.fire({ icon: 'warning', title: 'No Selection', text: 'Please select at least one application.' });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Re-Sieve Applications?',
+                    html: `Re-run AI sieving for <strong>${selectedCount}</strong> application(s)?<br><br><span class="text-orange-600">This will re-analyze CVs and re-evaluate applications using AI.</span>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ea580c',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Yes, Re-Sieve',
+                    cancelButtonText: 'Cancel',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({ 
+                            title: 'Re-Sieving...', 
+                            html: `Processing <strong>${selectedCount}</strong> application(s). This may take a few moments.`,
+                            allowOutsideClick: false, 
+                            showConfirmButton: false, 
+                            didOpen: () => Swal.showLoading() 
+                        });
+                        
+                        // Populate form
+                        const inputsDiv = document.getElementById('bulk-re-sieving-inputs');
+                        inputsDiv.innerHTML = '';
+                        selectedIds.forEach(id => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'application_ids[]';
+                            input.value = id;
+                            inputsDiv.appendChild(input);
+                        });
+                        
+                        bulkReSievingForm.submit();
                     }
                 });
             });

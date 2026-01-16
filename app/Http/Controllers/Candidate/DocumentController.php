@@ -70,14 +70,31 @@ class DocumentController extends Controller
         $validated = $request->validate([
             'filled_document' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:5120'], // 5MB max
         ]);
+
+        // Additional file security: verify actual file type
+        $file = $request->file('filled_document');
+        $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return Redirect::back()->withErrors(['filled_document' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.']);
+        }
         
         // Delete old filled document if exists
         if ($document->filled_path) {
-            Storage::disk('public')->delete($document->filled_path);
+            try {
+                Storage::disk('public')->delete($document->filled_path);
+            } catch (\Exception $e) {
+                \Log::warning('Failed to delete old filled document: ' . $e->getMessage());
+                // Continue even if deletion fails
+            }
         }
         
         // Store new filled document
-        $path = $request->file('filled_document')->store('candidate-documents/filled', 'public');
+        try {
+            $path = $request->file('filled_document')->store('candidate-documents/filled', 'public');
+        } catch (\Exception $e) {
+            \Log::error('Failed to store filled document: ' . $e->getMessage());
+            return Redirect::back()->withErrors(['filled_document' => 'Failed to upload file. Please try again.']);
+        }
         
         $document->filled_path = $path;
         $document->status = 'submitted';
@@ -98,6 +115,13 @@ class DocumentController extends Controller
             'document_type' => ['required', 'string', 'in:id,kra,sha'],
             'document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'], // 5MB max
         ]);
+
+        // Additional file security: verify actual file type
+        $file = $request->file('document');
+        $allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return Redirect::back()->withErrors(['document' => 'Invalid file type. Only PDF, JPG, and PNG files are allowed.']);
+        }
         
         // Check if document already exists
         $existingDocument = CandidateDocument::where('candidate_id', $candidate->id)
@@ -107,18 +131,33 @@ class DocumentController extends Controller
         if ($existingDocument) {
             // Delete old document
             if ($existingDocument->filled_path) {
-                Storage::disk('public')->delete($existingDocument->filled_path);
+                try {
+                    Storage::disk('public')->delete($existingDocument->filled_path);
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to delete old document: ' . $e->getMessage());
+                    // Continue even if deletion fails
+                }
             }
             
             // Update existing document
-            $path = $request->file('document')->store('candidate-documents/' . $validated['document_type'], 'public');
+            try {
+                $path = $request->file('document')->store('candidate-documents/' . $validated['document_type'], 'public');
+            } catch (\Exception $e) {
+                \Log::error('Failed to store document: ' . $e->getMessage());
+                return Redirect::back()->withErrors(['document' => 'Failed to upload file. Please try again.']);
+            }
             $existingDocument->filled_path = $path;
             $existingDocument->status = 'submitted';
             $existingDocument->uploaded_by = 'candidate';
             $existingDocument->save();
         } else {
             // Create new document
-            $path = $request->file('document')->store('candidate-documents/' . $validated['document_type'], 'public');
+            try {
+                $path = $request->file('document')->store('candidate-documents/' . $validated['document_type'], 'public');
+            } catch (\Exception $e) {
+                \Log::error('Failed to store document: ' . $e->getMessage());
+                return Redirect::back()->withErrors(['document' => 'Failed to upload file. Please try again.']);
+            }
             
             CandidateDocument::create([
                 'candidate_id' => $candidate->id,

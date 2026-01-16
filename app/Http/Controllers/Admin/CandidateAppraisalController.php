@@ -105,12 +105,25 @@ class CandidateAppraisalController extends Controller
             'status' => ['nullable', 'string', 'in:draft,published'],
         ]);
 
-        // Handle attachments
+        // Handle attachments with security checks
         $attachmentPaths = [];
         if ($request->hasFile('attachments')) {
+            $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/jpg', 'image/png'];
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store('candidate-appraisals/attachments', 'public');
-                $attachmentPaths[] = $path;
+                // Verify actual file type
+                if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+                    return redirect()->route('admin.candidates.appraisals.create', $candidate)
+                        ->withErrors(['attachments' => 'Invalid file type in attachments. Only PDF, DOC, DOCX, JPG, and PNG files are allowed.']);
+                }
+                
+                try {
+                    $path = $file->store('candidate-appraisals/attachments', 'public');
+                    $attachmentPaths[] = $path;
+                } catch (\Exception $e) {
+                    \Log::error('Failed to store appraisal attachment: ' . $e->getMessage());
+                    return redirect()->route('admin.candidates.appraisals.create', $candidate)
+                        ->withErrors(['attachments' => 'Failed to upload one or more attachments. Please try again.']);
+                }
             }
         }
 
@@ -191,20 +204,39 @@ class CandidateAppraisalController extends Controller
             'remove_attachments' => ['nullable', 'array'],
         ]);
 
-        // Handle new attachments
+        // Handle new attachments with security checks
         $attachmentPaths = $appraisal->attachments ?? [];
         if ($request->hasFile('attachments')) {
+            $allowedMimeTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/jpg', 'image/png'];
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store('candidate-appraisals/attachments', 'public');
-                $attachmentPaths[] = $path;
+                // Verify actual file type
+                if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+                    return redirect()->route('admin.candidates.appraisals.edit', $appraisal)
+                        ->withErrors(['attachments' => 'Invalid file type in attachments. Only PDF, DOC, DOCX, JPG, and PNG files are allowed.']);
+                }
+                
+                try {
+                    $path = $file->store('candidate-appraisals/attachments', 'public');
+                    $attachmentPaths[] = $path;
+                } catch (\Exception $e) {
+                    \Log::error('Failed to store appraisal attachment: ' . $e->getMessage());
+                    return redirect()->route('admin.candidates.appraisals.edit', $appraisal)
+                        ->withErrors(['attachments' => 'Failed to upload one or more attachments. Please try again.']);
+                }
             }
         }
 
         // Handle removal of attachments
         if ($request->has('remove_attachments')) {
             foreach ($request->input('remove_attachments') as $pathToRemove) {
+                // Security: Only allow removal of paths that exist in current attachments
                 if (in_array($pathToRemove, $attachmentPaths)) {
-                    Storage::disk('public')->delete($pathToRemove);
+                    try {
+                        Storage::disk('public')->delete($pathToRemove);
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete attachment: ' . $e->getMessage());
+                        // Continue even if deletion fails
+                    }
                     $attachmentPaths = array_diff($attachmentPaths, [$pathToRemove]);
                 }
             }

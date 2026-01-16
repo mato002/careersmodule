@@ -25,9 +25,9 @@
                     <img src="{{ asset('storage/'.$logoPath) }}" alt="Fortress Lenders" class="h-12 md:h-16 w-auto object-contain">
                 @else
                     <div class="w-12 h-12 bg-gradient-to-br from-teal-700 to-teal-800 rounded-lg flex items-center justify-center shadow-lg">
-                        <span class="text-amber-400 font-bold text-xl">F</span>
+                        <span class="text-amber-400 font-bold text-xl">C</span>
                     </div>
-                    <span class="text-2xl font-bold text-gray-900">Fortress Lenders</span>
+                    <span class="text-2xl font-bold text-gray-900">Career Portal</span>
                 @endif
             </a>
         </div>

@@ -10,9 +10,59 @@ use Illuminate\Support\Facades\Auth;
 class CandidateDashboardController extends Controller
 {
     /**
-     * Display the candidate dashboard.
+     * Display the candidate dashboard (overview).
      */
     public function index(Request $request)
+    {
+        $candidate = Auth::guard('candidate')->user();
+        
+        if (!$candidate) {
+            abort(403, 'Unauthorized. Please log in as a candidate.');
+        }
+        
+        // Link any existing applications by email if not already linked
+        $this->linkApplicationsByEmail($candidate);
+        
+        // Get statistics for dashboard overview
+        $stats = [
+            'total' => JobApplication::where('candidate_id', $candidate->id)->count(),
+            'pending' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'pending')->count(),
+            'sieving_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_passed')->count(),
+            'sieving_rejected' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'sieving_rejected')->count(),
+            'aptitude_failed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'aptitude_failed')->count(),
+            'stage_2_passed' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'stage_2_passed')->count(),
+            'hired' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'hired')->count(),
+        ];
+        
+        // Get recent applications (last 5) for quick overview
+        $recentApplications = JobApplication::where('candidate_id', $candidate->id)
+            ->with(['jobPost', 'jobPost.company'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Get applications requiring action
+        $actionRequired = JobApplication::where('candidate_id', $candidate->id)
+            ->where(function($query) {
+                $query->whereIn('status', ['sieving_passed', 'pending_manual_review'])
+                      ->whereNull('aptitude_test_completed_at');
+            })
+            ->orWhere(function($query) {
+                $query->where('aptitude_test_passed', true)
+                      ->whereNull('self_interview_completed_at')
+                      ->whereNotIn('status', ['stage_2_passed', 'hired', 'sieving_rejected']);
+            })
+            ->with(['jobPost'])
+            ->limit(5)
+            ->get();
+        
+        return view('candidate.dashboard', compact('stats', 'recentApplications', 'actionRequired', 'candidate'));
+    }
+
+    /**
+     * Display all applications (detailed list).
+     */
+    public function applications(Request $request)
     {
         $candidate = Auth::guard('candidate')->user();
         
@@ -50,7 +100,7 @@ class CandidateDashboardController extends Controller
             'hired' => JobApplication::where('candidate_id', $candidate->id)->where('status', 'hired')->count(),
         ];
         
-        return view('candidate.dashboard', compact('applications', 'stats'));
+        return view('candidate.applications', compact('applications', 'stats'));
     }
 
     /**

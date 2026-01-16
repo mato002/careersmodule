@@ -69,17 +69,18 @@ Route::get('/dashboard', function () {
 // Candidate Routes (separate guard)
 Route::middleware(['auth:candidate', \App\Http\Middleware\TrackCandidateSession::class])->prefix('candidate')->name('candidate.')->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\CandidateDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/applications', [\App\Http\Controllers\CandidateDashboardController::class, 'applications'])->name('applications');
     Route::get('/application/{application}', [\App\Http\Controllers\CandidateDashboardController::class, 'show'])->name('application.show');
     
     // Bio Data
     Route::get('/biodata', [\App\Http\Controllers\Candidate\BiodataController::class, 'index'])->name('biodata.index');
     Route::patch('/biodata', [\App\Http\Controllers\Candidate\BiodataController::class, 'update'])->name('biodata.update');
     
-    // Documents
+    // Documents (with rate limiting for uploads)
     Route::get('/documents', [\App\Http\Controllers\Candidate\DocumentController::class, 'index'])->name('documents.index');
     Route::get('/documents/{document}/download-template', [\App\Http\Controllers\Candidate\DocumentController::class, 'downloadTemplate'])->name('documents.download-template');
-    Route::post('/documents/{document}/upload-filled', [\App\Http\Controllers\Candidate\DocumentController::class, 'uploadFilled'])->name('documents.upload-filled');
-    Route::post('/documents/upload', [\App\Http\Controllers\Candidate\DocumentController::class, 'upload'])->name('documents.upload');
+    Route::post('/documents/{document}/upload-filled', [\App\Http\Controllers\Candidate\DocumentController::class, 'uploadFilled'])->middleware('throttle:10,1')->name('documents.upload-filled');
+    Route::post('/documents/upload', [\App\Http\Controllers\Candidate\DocumentController::class, 'upload'])->middleware('throttle:10,1')->name('documents.upload');
     Route::get('/documents/{document}/download', [\App\Http\Controllers\Candidate\DocumentController::class, 'download'])->name('documents.download');
     
     // Appraisals
@@ -156,7 +157,7 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             // Document Templates Management
             Route::get('document-templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'index'])->name('document-templates.index');
             Route::get('document-templates/create', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'create'])->name('document-templates.create');
-            Route::post('document-templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'store'])->name('document-templates.store');
+            Route::post('document-templates', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'store'])->middleware('throttle:10,1')->name('document-templates.store');
             Route::get('document-templates/{template}/download', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'download'])->name('document-templates.download');
             Route::post('document-templates/{template}/toggle-status', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'toggleStatus'])->name('document-templates.toggle-status');
             Route::delete('document-templates/{template}', [\App\Http\Controllers\Admin\DocumentTemplateController::class, 'destroy'])->name('document-templates.destroy');
@@ -171,8 +172,8 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             
             // Documents
             Route::get('candidates/{candidate}/documents', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'index'])->name('candidates.documents');
-            Route::post('candidates/{candidate}/documents/assign-template', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'assignTemplate'])->name('candidates.documents.assign-template');
-            Route::post('candidates/documents/{document}/upload-filled-hr', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'uploadFilledByHr'])->name('candidates.documents.upload-filled-hr');
+            Route::post('candidates/{candidate}/documents/assign-template', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'assignTemplate'])->middleware('throttle:10,1')->name('candidates.documents.assign-template');
+            Route::post('candidates/documents/{document}/upload-filled-hr', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'uploadFilledByHr'])->middleware('throttle:10,1')->name('candidates.documents.upload-filled-hr');
             Route::patch('candidates/documents/{document}/update-status', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'updateStatus'])->name('candidates.documents.update-status');
             Route::get('candidates/documents/{document}/download', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'download'])->name('candidates.documents.download');
             Route::get('candidates/documents/{document}/download-template', [\App\Http\Controllers\Admin\CandidateDocumentController::class, 'downloadTemplate'])->name('candidates.documents.download-template');
@@ -182,9 +183,9 @@ Route::middleware(['auth', 'verified', 'admin', 'not.candidate'])
             // Appraisals
             Route::get('candidates/{candidate}/appraisals', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'index'])->name('candidates.appraisals');
             Route::get('candidates/{candidate}/appraisals/create', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'create'])->name('candidates.appraisals.create');
-            Route::post('candidates/{candidate}/appraisals', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'store'])->name('candidates.appraisals.store');
+            Route::post('candidates/{candidate}/appraisals', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'store'])->middleware('throttle:10,1')->name('candidates.appraisals.store');
             Route::get('candidates/appraisals/{appraisal}/edit', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'edit'])->name('candidates.appraisals.edit');
-            Route::patch('candidates/appraisals/{appraisal}', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'update'])->name('candidates.appraisals.update');
+            Route::patch('candidates/appraisals/{appraisal}', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'update'])->middleware('throttle:10,1')->name('candidates.appraisals.update');
             Route::delete('candidates/appraisals/{appraisal}', [\App\Http\Controllers\Admin\CandidateAppraisalController::class, 'destroy'])->name('candidates.appraisals.destroy');
         });
         
